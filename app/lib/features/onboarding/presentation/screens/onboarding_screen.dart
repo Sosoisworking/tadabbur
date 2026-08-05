@@ -21,6 +21,7 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _emailController = TextEditingController();
   bool _linkSent = false;
+  bool _continuingAnonymously = false;
   String? _error;
 
   @override
@@ -36,6 +37,26 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       setState(() => _linkSent = true);
     } catch (e) {
       setState(() => _error = 'Could not send sign-in link: $e');
+    }
+  }
+
+  Future<void> _continueAnonymously() async {
+    setState(() {
+      _error = null;
+      _continuingAnonymously = true;
+    });
+    try {
+      await ref.read(authRepositoryProvider).continueAnonymously();
+      // No explicit navigation needed — the router's redirect (see
+      // app_router.dart) reacts to the auth-state stream and takes over
+      // once currentUser is non-null.
+    } catch (e) {
+      setState(() {
+        _error = 'Could not continue: $e\n\nIf this is the first time, check '
+            'that "Allow anonymous sign-ins" is enabled in your Supabase '
+            'project under Authentication settings.';
+        _continuingAnonymously = false;
+      });
     }
   }
 
@@ -68,6 +89,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   ),
                   const SizedBox(height: 16),
                   FilledButton(onPressed: _sendLink, child: const Text('Send sign-in link')),
+                  const SizedBox(height: 24),
+                  const Text('— or —'),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: _continuingAnonymously ? null : _continueAnonymously,
+                    child: _continuingAnonymously
+                        ? const SizedBox(
+                            height: 16,
+                            width: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Continue without an account'),
+                  ),
                 ],
                 if (_error != null) ...[
                   const SizedBox(height: 16),
