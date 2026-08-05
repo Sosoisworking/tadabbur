@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  analyze-and-test:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Create placeholder .env
+        # CI never has real Supabase credentials — only static analysis and
+        # widget/unit tests run here (no live network calls), so a
+        # placeholder satisfies the pubspec asset requirement without
+        # needing a secret in the repo.
+        run: cp .env.example .env
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test
