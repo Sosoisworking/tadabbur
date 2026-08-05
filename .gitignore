@@ -1,0 +1,26 @@
+# macOS
+.DS_Store
+
+# Environment / secrets
+.env
+.env.*
+*.pem
+*secrets*
+
+# Flutter / Dart (applies once the app is scaffolded)
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+ios/Pods/
+ios/.symlinks/
+android/.gradle/
+**/generated_plugin_registrant.dart
+
+# IDE
+.idea/
+*.iml
+.vscode/
