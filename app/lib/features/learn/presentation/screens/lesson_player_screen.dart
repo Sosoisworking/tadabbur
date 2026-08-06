@@ -51,13 +51,15 @@ class _LessonPlayerScreenState extends ConsumerState<LessonPlayerScreen> {
     });
   }
 
-  /// Fire-and-forget: entering an item into the SRS queue shouldn't add
-  /// latency to tapping "Next," and a transient failure here isn't worth
-  /// interrupting the lesson over — the item just won't show up for
-  /// review yet, which is recoverable (it'll be exposed again next time
-  /// this exercise is seen).
-  void _exposeToSrs(Future<void> Function() expose) {
-    expose().catchError((_) {});
+  /// Fire-and-forget: updating the SRS queue (exposure or quiz grading)
+  /// shouldn't add latency to tapping "Next," and a transient failure
+  /// here isn't worth interrupting the lesson over — recoverable, since
+  /// the item is re-exposed next time this exercise is seen. Logged
+  /// rather than silently swallowed: a fully silent failure here is
+  /// exactly what made the earlier "review shows nothing due" bug slow
+  /// to track down.
+  void _exposeToSrs(Future<void> Function() call) {
+    call().catchError((Object e) => debugPrint('SRS update failed: $e'));
   }
 
   Future<void> _advance(List<LessonExercise> exercises, {required bool graded, bool isCorrect = true}) async {
@@ -179,11 +181,17 @@ class _LessonPlayerScreenState extends ConsumerState<LessonPlayerScreen> {
             _selectedQuizOption = optionIndex;
             _quizAnswered = true;
           }),
-          onNext: () => _advance(
-            all,
-            graded: true,
-            isCorrect: _selectedQuizOption == exercise.correctOptionIndex,
-          ),
+          onNext: () {
+            final isCorrect = _selectedQuizOption == exercise.correctOptionIndex;
+            if (exercise.testedVocabItemId != null || exercise.testedLetterId != null) {
+              _exposeToSrs(() => ref.read(srsRepositoryProvider).gradeFromQuiz(
+                    vocabItemId: exercise.testedVocabItemId,
+                    letterId: exercise.testedLetterId,
+                    isCorrect: isCorrect,
+                  ));
+            }
+            _advance(all, graded: true, isCorrect: isCorrect);
+          },
         );
       case LetterCardExercise():
         return _LetterCardView(

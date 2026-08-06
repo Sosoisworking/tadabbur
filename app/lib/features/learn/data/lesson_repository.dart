@@ -32,7 +32,7 @@ class LessonRepository {
           'id, exercise_type, sequence_order, '
           'exercise_vocab_card(vocab_items(id, arabic_text, transliteration, meaning_en, root_letters, wazn_pattern)), '
           'exercise_reading_passage(start_ayah_id, end_ayah_id), '
-          'exercise_recall_quiz(question, options, correct_option_index), '
+          'exercise_recall_quiz(question, options, correct_option_index, tested_vocab_item_id, tested_letter_id), '
           'exercise_letter_card(letters(id, isolated_form, name_arabic, name_transliteration, pronunciation_guide))',
         )
         .eq('lesson_id', lessonId)
@@ -78,6 +78,8 @@ class LessonRepository {
             question: quiz['question'] as String,
             options: List<String>.from(quiz['options'] as List),
             correctOptionIndex: quiz['correct_option_index'] as int,
+            testedVocabItemId: quiz['tested_vocab_item_id'] as int?,
+            testedLetterId: quiz['tested_letter_id'] as int?,
           );
         case 'reading_passage':
           return resolvedPassages[id]!;
@@ -176,7 +178,7 @@ class LessonRepository {
     required int totalCount,
   }) async {
     await _client.from('lesson_attempts').update({
-      'completed_at': DateTime.now().toIso8601String(),
+      'completed_at': DateTime.now().toUtc().toIso8601String(),
       'exercises_correct': correctCount,
       'exercises_total': totalCount,
       'xp_earned': correctCount * 10,
@@ -207,7 +209,7 @@ class LessonRepository {
     if (lessonIds.every(completedLessonIds.contains)) {
       await _client
           .from('user_unit_progress')
-          .update({'status': 'completed', 'completed_at': DateTime.now().toIso8601String()})
+          .update({'status': 'completed', 'completed_at': DateTime.now().toUtc().toIso8601String()})
           .match({'user_id': userId, 'unit_id': unitId});
     }
   }

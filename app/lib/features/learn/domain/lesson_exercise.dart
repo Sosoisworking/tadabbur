@@ -70,7 +70,17 @@ class RecallQuizExercise extends LessonExercise {
     required this.question,
     required this.options,
     required this.correctOptionIndex,
+    this.testedVocabItemId,
+    this.testedLetterId,
   });
+
+  /// When set, answering this quiz (right or wrong) feeds directly into
+  /// that item's SRS schedule via SrsRepository.gradeFromQuiz — a wrong
+  /// answer resets its spacing, not just leaves it at whatever passive
+  /// exposure set it to. Both nullable and mutually optional: not every
+  /// quiz question necessarily tests one single trackable item.
+  final int? testedVocabItemId;
+  final int? testedLetterId;
 
   final String question;
   final List<String> options;

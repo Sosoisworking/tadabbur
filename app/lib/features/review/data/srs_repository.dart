@@ -25,11 +25,34 @@ class SrsRepository {
     return _invokeExpose({'letter_id': letterId});
   }
 
-  Future<void> _invokeExpose(Map<String, dynamic> idField) async {
-    await _client.functions.invoke(
+  Future<int> _invokeExpose(Map<String, dynamic> idField) async {
+    final response = await _client.functions.invoke(
       'srs-review',
       body: {'action': 'expose', ...idField},
     );
+    return (response.data as Map<String, dynamic>)['srs_item_id'] as int;
+  }
+
+  /// Grades a quiz answer directly into that item's SRS schedule — right
+  /// or wrong, not just the passive "seen it" signal from exposure. A
+  /// wrong answer resets the item's spacing (SM-2 quality < 3), so it
+  /// resurfaces for review soon rather than drifting on whatever interval
+  /// its last passive exposure happened to set.
+  ///
+  /// Calls expose first (idempotent) rather than assuming the matching
+  /// card was already shown earlier in the lesson — holds even if a
+  /// future content change puts a quiz before its card.
+  Future<void> gradeFromQuiz({
+    int? vocabItemId,
+    int? letterId,
+    required bool isCorrect,
+  }) async {
+    if (vocabItemId == null && letterId == null) return;
+
+    final srsItemId = await _invokeExpose(
+      vocabItemId != null ? {'vocab_item_id': vocabItemId} : {'letter_id': letterId},
+    );
+    await submitReview(srsItemId: srsItemId, qualityRating: isCorrect ? 4 : 1);
   }
 
   Future<List<DueSrsItem>> fetchDueItems() async {
@@ -43,7 +66,7 @@ class SrsRepository {
           'letters(isolated_form, name_transliteration, pronunciation_guide)',
         )
         .eq('user_id', userId)
-        .lte('due_at', DateTime.now().toIso8601String())
+        .lte('due_at', DateTime.now().toUtc().toIso8601String())
         .order('due_at', ascending: true) as List;
 
     return rows.map(_parseDueItem).toList();
