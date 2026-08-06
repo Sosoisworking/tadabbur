@@ -8,6 +8,7 @@ import '../../features/learn/presentation/screens/unit_detail_screen.dart';
 import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../../features/progress/presentation/screens/progress_screen.dart';
 import '../../features/review/presentation/screens/review_screen.dart';
+import '../../features/review/presentation/screens/review_session_screen.dart';
 import '../../features/tutor/presentation/screens/tutor_screen.dart';
 import '../../shared/widgets/app_shell.dart';
 import '../services/supabase_service.dart';
@@ -51,6 +52,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final args = state.extra as ({int unitId, String lessonTitle});
           return LessonPlayerScreen(lessonId: lessonId, unitId: args.unitId, lessonTitle: args.lessonTitle);
         },
+      ),
+      GoRoute(
+        path: '/review-session',
+        builder: (context, state) => const ReviewSessionScreen(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) => AppShell(navigationShell: navigationShell),

@@ -82,6 +82,20 @@ CREATE TABLE grammar_points (
   explanation_short TEXT NOT NULL,   -- shown inline during a lesson
   explanation_full  TEXT NOT NULL    -- shown on demand ("explain more" — serves the Sarah persona)
 );
+
+-- Added in migration 0003 (not in the original design) — letters aren't
+-- vocabulary (no root/pattern), and the placement test already treats
+-- script literacy as a separate axis from vocabulary knowledge, so this
+-- is its own table rather than rows in vocab_items.
+CREATE TABLE letters (
+  id                     SERIAL PRIMARY KEY,
+  isolated_form          TEXT NOT NULL,
+  name_arabic            TEXT NOT NULL,
+  name_transliteration   TEXT NOT NULL,
+  pronunciation_guide    TEXT NOT NULL,
+  sequence_order         INT NOT NULL UNIQUE,
+  audio_url              TEXT NOT NULL
+);
 ```
 
 ### Exercises: base table + per-type extension tables
@@ -95,7 +109,7 @@ CREATE TABLE exercises (
   exercise_type  TEXT NOT NULL CHECK (exercise_type IN
                    ('vocab_card','grammar_explanation','reading_passage',
                     'listening_drill','pronunciation_recording','recall_quiz',
-                    'mastery_challenge')),
+                    'mastery_challenge','letter_card')), -- letter_card added in migration 0003
   sequence_order INT NOT NULL,
   UNIQUE (lesson_id, sequence_order)
 );
@@ -140,6 +154,11 @@ CREATE TABLE exercise_recall_quiz (
 CREATE TABLE exercise_mastery_challenge (
   exercise_id       INT PRIMARY KEY REFERENCES exercises(id),
   challenge_surah    SMALLINT NOT NULL REFERENCES surahs(number)  -- an *unseen* surah, not this unit's
+);
+
+CREATE TABLE exercise_letter_card (
+  exercise_id  INT PRIMARY KEY REFERENCES exercises(id),
+  letter_id    INT NOT NULL REFERENCES letters(id)
 );
 ```
 
@@ -210,17 +229,19 @@ CREATE TABLE srs_items (
   user_id           UUID NOT NULL REFERENCES users(id),
   vocab_item_id     INT REFERENCES vocab_items(id),
   grammar_point_id  INT REFERENCES grammar_points(id),
+  letter_id         INT REFERENCES letters(id), -- added in migration 0006, once the alphabet primer existed
   ease_factor       NUMERIC(3,2) NOT NULL DEFAULT 2.5,
   interval_days     INT NOT NULL DEFAULT 1,
   repetitions       INT NOT NULL DEFAULT 0,
   due_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
   last_reviewed_at  TIMESTAMPTZ,
-  CHECK (num_nonnulls(vocab_item_id, grammar_point_id) = 1)
+  CHECK (num_nonnulls(vocab_item_id, grammar_point_id, letter_id) = 1)
 );
 
 -- The single most-queried access pattern in the whole schema: "give me this user's due items."
 CREATE UNIQUE INDEX srs_items_user_vocab_uq ON srs_items(user_id, vocab_item_id) WHERE vocab_item_id IS NOT NULL;
 CREATE UNIQUE INDEX srs_items_user_grammar_uq ON srs_items(user_id, grammar_point_id) WHERE grammar_point_id IS NOT NULL;
+CREATE UNIQUE INDEX srs_items_user_letter_uq ON srs_items(user_id, letter_id) WHERE letter_id IS NOT NULL;
 CREATE INDEX srs_items_due_idx ON srs_items(user_id, due_at);
 
 CREATE TABLE srs_review_log (

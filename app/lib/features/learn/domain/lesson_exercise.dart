@@ -22,6 +22,7 @@ class VocabCardExercise extends LessonExercise {
   const VocabCardExercise({
     required super.id,
     required super.sequenceOrder,
+    required this.vocabItemId,
     required this.arabicText,
     required this.transliteration,
     required this.meaningEn,
@@ -29,6 +30,10 @@ class VocabCardExercise extends LessonExercise {
     this.waznPattern,
   });
 
+  /// Needed to enter this item into the user's SRS review queue
+  /// (docs/feature-specs.md §3) once they've seen it — not just for
+  /// display.
+  final int vocabItemId;
   final String arabicText;
   final String transliteration;
   final String meaningEn;
@@ -80,12 +85,17 @@ class LetterCardExercise extends LessonExercise {
   const LetterCardExercise({
     required super.id,
     required super.sequenceOrder,
+    required this.letterId,
     required this.isolatedForm,
     required this.nameArabic,
     required this.nameTransliteration,
     required this.pronunciationGuide,
   });
 
+  /// Needed to enter this letter into the user's SRS review queue
+  /// (docs/feature-specs.md §3) once they've seen it — not just for
+  /// display.
+  final int letterId;
   final String isolatedForm;
   final String nameArabic;
   final String nameTransliteration;

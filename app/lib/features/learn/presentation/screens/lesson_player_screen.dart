@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/mixed_arabic_text.dart';
+import '../../../review/data/srs_repository.dart';
 import '../../data/curriculum_repository.dart';
 import '../../data/lesson_repository.dart';
 import '../../domain/lesson_exercise.dart';
@@ -48,6 +49,15 @@ class _LessonPlayerScreenState extends ConsumerState<LessonPlayerScreen> {
     ref.read(lessonRepositoryProvider).startLessonAttempt(widget.lessonId).then((id) {
       if (mounted) setState(() => _lessonAttemptId = id);
     });
+  }
+
+  /// Fire-and-forget: entering an item into the SRS queue shouldn't add
+  /// latency to tapping "Next," and a transient failure here isn't worth
+  /// interrupting the lesson over — the item just won't show up for
+  /// review yet, which is recoverable (it'll be exposed again next time
+  /// this exercise is seen).
+  void _exposeToSrs(Future<void> Function() expose) {
+    expose().catchError((_) {});
   }
 
   Future<void> _advance(List<LessonExercise> exercises, {required bool graded, bool isCorrect = true}) async {
@@ -150,7 +160,10 @@ class _LessonPlayerScreenState extends ConsumerState<LessonPlayerScreen> {
       case VocabCardExercise():
         return _VocabCardView(
           exercise: exercise,
-          onNext: () => _advance(all, graded: false),
+          onNext: () {
+            _exposeToSrs(() => ref.read(srsRepositoryProvider).exposeVocabItem(exercise.vocabItemId));
+            _advance(all, graded: false);
+          },
         );
       case ReadingPassageExercise():
         return _ReadingPassageView(
@@ -175,7 +188,10 @@ class _LessonPlayerScreenState extends ConsumerState<LessonPlayerScreen> {
       case LetterCardExercise():
         return _LetterCardView(
           exercise: exercise,
-          onNext: () => _advance(all, graded: false),
+          onNext: () {
+            _exposeToSrs(() => ref.read(srsRepositoryProvider).exposeLetter(exercise.letterId));
+            _advance(all, graded: false);
+          },
         );
       case UnsupportedExercise():
         return _UnsupportedView(

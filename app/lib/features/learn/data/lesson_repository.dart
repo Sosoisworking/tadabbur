@@ -30,10 +30,10 @@ class LessonRepository {
         .from('exercises')
         .select(
           'id, exercise_type, sequence_order, '
-          'exercise_vocab_card(vocab_items(arabic_text, transliteration, meaning_en, root_letters, wazn_pattern)), '
+          'exercise_vocab_card(vocab_items(id, arabic_text, transliteration, meaning_en, root_letters, wazn_pattern)), '
           'exercise_reading_passage(start_ayah_id, end_ayah_id), '
           'exercise_recall_quiz(question, options, correct_option_index), '
-          'exercise_letter_card(letters(isolated_form, name_arabic, name_transliteration, pronunciation_guide))',
+          'exercise_letter_card(letters(id, isolated_form, name_arabic, name_transliteration, pronunciation_guide))',
         )
         .eq('lesson_id', lessonId)
         .order('sequence_order', ascending: true) as List;
@@ -63,6 +63,7 @@ class LessonRepository {
           return VocabCardExercise(
             id: id,
             sequenceOrder: seq,
+            vocabItemId: vocab['id'] as int,
             arabicText: vocab['arabic_text'] as String,
             transliteration: vocab['transliteration'] as String,
             meaningEn: vocab['meaning_en'] as String,
@@ -85,6 +86,7 @@ class LessonRepository {
           return LetterCardExercise(
             id: id,
             sequenceOrder: seq,
+            letterId: letter['id'] as int,
             isolatedForm: letter['isolated_form'] as String,
             nameArabic: letter['name_arabic'] as String,
             nameTransliteration: letter['name_transliteration'] as String,
