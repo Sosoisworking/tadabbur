@@ -49,5 +49,11 @@ final curriculumRepositoryProvider = Provider<CurriculumRepository>((ref) {
 });
 
 final curriculumUnitsProvider = FutureProvider<List<CurriculumUnit>>((ref) {
+  // Refetch whenever auth state changes (sign-in, sign-out, or — the bug
+  // this specifically guards against — ending up authenticated as a
+  // *different* user mid-session without this screen ever being told).
+  // Without this, a stale fetch from an earlier session can sit cached
+  // indefinitely and show the wrong user's progress.
+  ref.watch(authStateProvider);
   return ref.watch(curriculumRepositoryProvider).fetchUnitsForCurrentUser();
 });

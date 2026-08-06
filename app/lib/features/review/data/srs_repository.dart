@@ -126,5 +126,8 @@ final srsRepositoryProvider = Provider<SrsRepository>((ref) {
 });
 
 final dueSrsItemsProvider = FutureProvider<List<DueSrsItem>>((ref) {
+  // Same reasoning as curriculumUnitsProvider (learn/data/curriculum_repository.dart):
+  // refetch on any auth change so this never shows a stale user's queue.
+  ref.watch(authStateProvider);
   return ref.watch(srsRepositoryProvider).fetchDueItems();
 });
