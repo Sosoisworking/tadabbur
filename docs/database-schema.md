@@ -175,7 +175,7 @@ CREATE TABLE placement_results (
 CREATE TABLE user_unit_progress (
   user_id       UUID NOT NULL REFERENCES users(id),
   unit_id       INT NOT NULL REFERENCES units(id),
-  status        TEXT NOT NULL CHECK (status IN ('locked','in_progress','completed')) DEFAULT 'locked',
+  status        TEXT NOT NULL CHECK (status IN ('locked','in_progress','completed','mastered')) DEFAULT 'locked',
   started_at    TIMESTAMPTZ,
   completed_at  TIMESTAMPTZ,
   PRIMARY KEY (user_id, unit_id)

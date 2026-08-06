@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_typography.dart';
 import '../../data/curriculum_repository.dart';
@@ -7,11 +8,9 @@ import '../../domain/curriculum_unit.dart';
 
 /// Reference screen for the presentation layer pattern: watch a provider,
 /// handle loading/error/data explicitly (AsyncValue.when), no business
-/// logic here — that all lives in CurriculumRepository. Real unit-node
-/// visuals (locked/in-progress/completed/mastered states from
-/// docs/design-system.md) land when the Learn tab is actually built out
-/// in implementation-plan.md milestone M2; this proves the data path end
-/// to end with a plain list first.
+/// logic here — that all lives in CurriculumRepository. Tapping a unit
+/// pushes UnitDetailScreen (see core/router/app_router.dart) unless it's
+/// locked.
 class LearnScreen extends ConsumerWidget {
   const LearnScreen({super.key});
 
@@ -58,12 +57,16 @@ class _UnitTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final locked = unit.status == UnitStatus.locked;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
+        enabled: !locked,
         leading: _statusIcon(context, unit.status),
         title: Text(unit.title, style: AppTypography.accent(fontSize: 18)),
-        subtitle: Text(unit.status.name),
+        subtitle: Text(locked ? 'Complete earlier units to unlock' : unit.status.name),
+        onTap: locked ? null : () => context.push('/learn/unit/${unit.id}', extra: unit.title),
       ),
     );
   }
