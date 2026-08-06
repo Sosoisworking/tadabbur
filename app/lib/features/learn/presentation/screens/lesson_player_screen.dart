@@ -171,12 +171,45 @@ class _LessonPlayerScreenState extends ConsumerState<LessonPlayerScreen> {
             isCorrect: _selectedQuizOption == exercise.correctOptionIndex,
           ),
         );
+      case LetterCardExercise():
+        return _LetterCardView(
+          exercise: exercise,
+          onNext: () => _advance(all, graded: false),
+        );
       case UnsupportedExercise():
         return _UnsupportedView(
           exerciseType: exercise.exerciseType,
           onSkip: () => _advance(all, graded: false),
         );
     }
+  }
+}
+
+class _LetterCardView extends StatelessWidget {
+  const _LetterCardView({required this.exercise, required this.onNext});
+
+  final LetterCardExercise exercise;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(exercise.isolatedForm, style: AppTypography.arabic(fontSize: 96), textAlign: TextAlign.center),
+          const SizedBox(height: 16),
+          Text(exercise.nameArabic, style: AppTypography.arabic(fontSize: 28), textAlign: TextAlign.center),
+          const SizedBox(height: 8),
+          Text(exercise.nameTransliteration, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          Text(exercise.pronunciationGuide, style: Theme.of(context).textTheme.bodyLarge, textAlign: TextAlign.center),
+          const SizedBox(height: 32),
+          FilledButton(onPressed: onNext, child: const Text('Next')),
+        ],
+      ),
+    );
   }
 }
 

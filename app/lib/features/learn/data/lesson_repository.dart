@@ -28,7 +28,8 @@ class LessonRepository {
           'id, exercise_type, sequence_order, '
           'exercise_vocab_card(vocab_items(arabic_text, transliteration, meaning_en, root_letters, wazn_pattern)), '
           'exercise_reading_passage(start_ayah_id, end_ayah_id), '
-          'exercise_recall_quiz(question, options, correct_option_index)',
+          'exercise_recall_quiz(question, options, correct_option_index), '
+          'exercise_letter_card(letters(isolated_form, name_arabic, name_transliteration, pronunciation_guide))',
         )
         .eq('lesson_id', lessonId)
         .order('sequence_order') as List;
@@ -75,6 +76,16 @@ class LessonRepository {
           );
         case 'reading_passage':
           return resolvedPassages[id]!;
+        case 'letter_card':
+          final letter = _unwrapEmbed(row['exercise_letter_card'])['letters'] as Map<String, dynamic>;
+          return LetterCardExercise(
+            id: id,
+            sequenceOrder: seq,
+            isolatedForm: letter['isolated_form'] as String,
+            nameArabic: letter['name_arabic'] as String,
+            nameTransliteration: letter['name_transliteration'] as String,
+            pronunciationGuide: letter['pronunciation_guide'] as String,
+          );
         default:
           return UnsupportedExercise(id: id, sequenceOrder: seq, exerciseType: row['exercise_type'] as String);
       }

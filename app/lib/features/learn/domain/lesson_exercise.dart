@@ -4,9 +4,9 @@
 /// the app forces every switch site to be updated, rather than silently
 /// falling through.
 ///
-/// Only vocab_card, reading_passage, and recall_quiz are backed by real
-/// content right now (docs/feature-specs.md's other exercise types —
-/// grammar_explanation, listening_drill, pronunciation_recording,
+/// vocab_card, reading_passage, recall_quiz, and letter_card are backed
+/// by real content right now (docs/feature-specs.md's other exercise
+/// types — grammar_explanation, listening_drill, pronunciation_recording,
 /// mastery_challenge — land in later milestones per
 /// docs/implementation-plan.md). Anything else resolves to
 /// [UnsupportedExercise], which the player skips visibly rather than
@@ -70,6 +70,26 @@ class RecallQuizExercise extends LessonExercise {
   final String question;
   final List<String> options;
   final int correctOptionIndex;
+}
+
+/// The letter-recognition primer content (docs/feature-specs.md §1) —
+/// deliberately its own type rather than reusing VocabCardExercise, since
+/// letters aren't vocabulary (no root/pattern) and the placement test
+/// treats script literacy as an axis distinct from vocabulary knowledge.
+class LetterCardExercise extends LessonExercise {
+  const LetterCardExercise({
+    required super.id,
+    required super.sequenceOrder,
+    required this.isolatedForm,
+    required this.nameArabic,
+    required this.nameTransliteration,
+    required this.pronunciationGuide,
+  });
+
+  final String isolatedForm;
+  final String nameArabic;
+  final String nameTransliteration;
+  final String pronunciationGuide;
 }
 
 class UnsupportedExercise extends LessonExercise {
