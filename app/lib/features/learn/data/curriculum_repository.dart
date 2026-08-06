@@ -31,7 +31,7 @@ class CurriculumRepository {
         .from('units')
         .select('id, title, sequence_order, user_unit_progress!left(status)')
         .eq('user_unit_progress.user_id', userId)
-        .order('sequence_order');
+        .order('sequence_order', ascending: true);
 
     return (response as List).map((row) {
       final progressRows = row['user_unit_progress'] as List?;

@@ -17,7 +17,11 @@ class LessonRepository {
   final SupabaseClient _client;
 
   Future<List<Lesson>> fetchLessonsForUnit(int unitId) async {
-    final rows = await _client.from('lessons').select().eq('unit_id', unitId).order('sequence_order');
+    final rows = await _client
+        .from('lessons')
+        .select()
+        .eq('unit_id', unitId)
+        .order('sequence_order', ascending: true);
     return (rows as List).map((row) => Lesson.fromJson(row as Map<String, dynamic>)).toList();
   }
 
@@ -32,7 +36,7 @@ class LessonRepository {
           'exercise_letter_card(letters(isolated_form, name_arabic, name_transliteration, pronunciation_guide))',
         )
         .eq('lesson_id', lessonId)
-        .order('sequence_order') as List;
+        .order('sequence_order', ascending: true) as List;
 
     // Reading passages need a second round trip — a passage spans a
     // *range* of ayat, which a single-row FK embed can't express — so
@@ -111,7 +115,7 @@ class LessonRepository {
           .from('ayat')
           .select('surah_number, ayah_number')
           .inFilter('id', [entry.value.startAyahId, entry.value.endAyahId])
-          .order('ayah_number') as List;
+          .order('ayah_number', ascending: true) as List;
 
       final surahNumber = bounds.first['surah_number'] as int;
       final startAyah = bounds.first['ayah_number'] as int;
@@ -123,7 +127,7 @@ class LessonRepository {
           .eq('surah_number', surahNumber)
           .gte('ayah_number', startAyah)
           .lte('ayah_number', endAyah)
-          .order('ayah_number') as List;
+          .order('ayah_number', ascending: true) as List;
 
       result[entry.key] = ReadingPassageExercise(
         id: entry.key,
