@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_typography.dart';
+import '../../../../shared/widgets/mixed_arabic_text.dart';
 import '../../data/curriculum_repository.dart';
 import '../../data/lesson_repository.dart';
 import '../../domain/lesson_exercise.dart';
@@ -311,7 +312,11 @@ class _RecallQuizView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(exercise.question, style: Theme.of(context).textTheme.titleLarge),
+          MixedArabicText(
+            exercise.question,
+            baseStyle: Theme.of(context).textTheme.titleLarge,
+            arabicFontSize: 32,
+          ),
           const SizedBox(height: 24),
           for (var i = 0; i < exercise.options.length; i++) ...[
             _QuizOptionButton(
