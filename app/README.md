@@ -29,16 +29,18 @@ supabase db push
 ```
 cd app
 flutter pub get
-flutter run -d chrome --web-port=5000     # or -d macos, or a connected device/simulator once Xcode/Android Studio are set up
+flutter run -d chrome --web-port=5173     # or -d macos, or a connected device/simulator once Xcode/Android Studio are set up
 ```
 
-**Always use `--web-port=5000`** (or any fixed port — just stay consistent) rather than letting Flutter pick a random one. Email magic-link sign-in redirects back to whatever URL is configured in your Supabase project's Auth settings — if that doesn't match the port your app happens to be running on, the link silently goes nowhere. See step 4.
+**Always use `--web-port=5173`** (or any fixed port — just stay consistent) rather than letting Flutter pick a random one. Email magic-link sign-in redirects back to whatever URL is configured in your Supabase project's Auth settings — if that doesn't match the port your app happens to be running on, the link silently goes nowhere. See step 4.
+
+(Port 5000 seems like the obvious default but is usually taken on macOS by ControlCenter/AirPlay Receiver — that's a system service, not something to shut down, so just use a different port instead.)
 
 ### 4. Configure the auth redirect URL (one-time, only you can do this)
 
 In your Supabase dashboard: **Authentication → URL Configuration**. Set:
-- **Site URL**: `http://localhost:5000`
-- Add `http://localhost:5000` under **Redirect URLs** too if it's a separate list in your dashboard version.
+- **Site URL**: `http://localhost:5173`
+- Add `http://localhost:5173` under **Redirect URLs** too if it's a separate list in your dashboard version.
 
 If you ever change the port in step 3, update this to match, or magic-link sign-in will break the same way again.
 
