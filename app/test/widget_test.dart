@@ -15,17 +15,23 @@ import 'package:tadabbur/features/onboarding/presentation/screens/onboarding_scr
 
 class _MockSupabaseClient extends Mock implements SupabaseClient {}
 
-/// Overrides sendMagicLink so the test never touches a real client — the
-/// mock client above only exists to satisfy AuthRepository's constructor.
+/// Overrides signUpWithPassword so the test never touches a real client —
+/// the mock client above only exists to satisfy AuthRepository's
+/// constructor. Returns a session-less response to exercise the
+/// "check your email to confirm" branch, since that's reachable without
+/// a real backend (a successful sign-in immediately hands off to the
+/// router, which isn't under test here).
 class _FakeAuthRepository extends AuthRepository {
   _FakeAuthRepository() : super(_MockSupabaseClient());
 
   @override
-  Future<void> sendMagicLink(String email) async {}
+  Future<AuthResponse> signUpWithPassword({required String email, required String password}) async {
+    return AuthResponse(session: null);
+  }
 }
 
 void main() {
-  testWidgets('shows email field and confirms after sending a sign-in link', (tester) async {
+  testWidgets('shows email/password fields and confirms after signing up', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [authRepositoryProvider.overrideWithValue(_FakeAuthRepository())],
@@ -35,11 +41,19 @@ void main() {
 
     expect(find.text('Tadabbur'), findsOneWidget);
     expect(find.widgetWithText(TextField, 'Email'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Password'), findsOneWidget);
 
-    await tester.enterText(find.byType(TextField), 'aisha@example.com');
-    await tester.tap(find.widgetWithText(FilledButton, 'Send sign-in link'));
+    await tester.enterText(find.widgetWithText(TextField, 'Email'), 'aisha@example.com');
+    await tester.enterText(find.widgetWithText(TextField, 'Password'), 'a-real-password');
+
+    await tester.tap(find.text('Sign Up'));
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Sign Up'));
     await tester.pump();
 
-    expect(find.text('Check your email for a sign-in link.'), findsOneWidget);
+    expect(
+      find.text('Check your email to confirm your account, then log in below.'),
+      findsOneWidget,
+    );
   });
 }

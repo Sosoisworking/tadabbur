@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/theme/app_typography.dart';
 import '../../../auth/data/auth_repository.dart';
@@ -18,25 +19,63 @@ class OnboardingScreen extends ConsumerStatefulWidget {
   ConsumerState<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
+enum _Mode { logIn, signUp }
+
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _emailController = TextEditingController();
-  bool _linkSent = false;
+  final _passwordController = TextEditingController();
+  _Mode _mode = _Mode.logIn;
+  bool _submitting = false;
   bool _continuingAnonymously = false;
+  bool _checkEmailToConfirm = false;
   String? _error;
 
   @override
   void dispose() {
     _emailController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
-  Future<void> _sendLink() async {
-    setState(() => _error = null);
+  Future<void> _submit() async {
+    setState(() {
+      _error = null;
+      _submitting = true;
+    });
+
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
     try {
-      await ref.read(authRepositoryProvider).sendMagicLink(_emailController.text.trim());
-      setState(() => _linkSent = true);
+      if (_mode == _Mode.signUp) {
+        final response = await ref.read(authRepositoryProvider).signUpWithPassword(
+              email: email,
+              password: password,
+            );
+        // No session yet means the project requires email confirmation
+        // before this account is usable — a one-time step, unlike magic
+        // link's every-sign-in redirect dependency.
+        if (response.session == null) {
+          setState(() {
+            _checkEmailToConfirm = true;
+            _submitting = false;
+          });
+          return;
+        }
+        // Session present: router's redirect (app_router.dart) takes over.
+      } else {
+        await ref.read(authRepositoryProvider).signInWithPassword(email: email, password: password);
+      }
+    } on AuthException catch (e) {
+      setState(() {
+        _error = e.message;
+        _submitting = false;
+      });
     } catch (e) {
-      setState(() => _error = 'Could not send sign-in link: $e');
+      setState(() {
+        _error = 'Something went wrong: $e';
+        _submitting = false;
+      });
     }
   }
 
@@ -79,16 +118,43 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 32),
-                if (_linkSent)
-                  const Text('Check your email for a sign-in link.')
+                if (_checkEmailToConfirm)
+                  const Text(
+                    'Check your email to confirm your account, then log in below.',
+                    textAlign: TextAlign.center,
+                  )
                 else ...[
+                  SegmentedButton<_Mode>(
+                    segments: const [
+                      ButtonSegment(value: _Mode.logIn, label: Text('Log In')),
+                      ButtonSegment(value: _Mode.signUp, label: Text('Sign Up')),
+                    ],
+                    selected: {_mode},
+                    onSelectionChanged: (selection) => setState(() => _mode = selection.first),
+                  ),
+                  const SizedBox(height: 16),
                   TextField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder()),
                   ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _passwordController,
+                    obscureText: true,
+                    decoration: const InputDecoration(labelText: 'Password', border: OutlineInputBorder()),
+                  ),
                   const SizedBox(height: 16),
-                  FilledButton(onPressed: _sendLink, child: const Text('Send sign-in link')),
+                  FilledButton(
+                    onPressed: _submitting ? null : _submit,
+                    child: _submitting
+                        ? const SizedBox(
+                            height: 16,
+                            width: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(_mode == _Mode.logIn ? 'Log In' : 'Sign Up'),
+                  ),
                   const SizedBox(height: 24),
                   const Text('— or —'),
                   const SizedBox(height: 8),

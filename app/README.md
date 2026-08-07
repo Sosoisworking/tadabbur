@@ -32,17 +32,13 @@ flutter pub get
 flutter run -d chrome --web-port=5173     # or -d macos, or a connected device/simulator once Xcode/Android Studio are set up
 ```
 
-**Always use `--web-port=5173`** (or any fixed port — just stay consistent) rather than letting Flutter pick a random one. Email magic-link sign-in redirects back to whatever URL is configured in your Supabase project's Auth settings — if that doesn't match the port your app happens to be running on, the link silently goes nowhere. See step 4.
+`--web-port=5173` just keeps things consistent across runs — not load-bearing for auth anymore (see below), but still convenient. (Port 5000 seems like the obvious default but is usually taken on macOS by ControlCenter/AirPlay Receiver, a system service — use a different port rather than fighting it.)
 
-(Port 5000 seems like the obvious default but is usually taken on macOS by ControlCenter/AirPlay Receiver — that's a system service, not something to shut down, so just use a different port instead.)
+### 4. Auth: email/password, not magic link
 
-### 4. Configure the auth redirect URL (one-time, only you can do this)
+Sign-in uses email + password (`AuthRepository.signUpWithPassword` / `signInWithPassword`), not a magic-link email — a magic link redirects back to a URL that has to exactly match whatever port the dev server happens to be on, which was a real source of friction locally. Password auth has no redirect step, and only needs an email round-trip once (confirming a new account, if your project has "Confirm email" enabled under Authentication settings) rather than on every sign-in.
 
-In your Supabase dashboard: **Authentication → URL Configuration**. Set:
-- **Site URL**: `http://localhost:5173`
-- Add `http://localhost:5173` under **Redirect URLs** too if it's a separate list in your dashboard version.
-
-If you ever change the port in step 3, update this to match, or magic-link sign-in will break the same way again.
+There's also a "Continue without an account" option on the onboarding screen, using Supabase anonymous sign-in — needs "Allow anonymous sign-ins" enabled under Authentication settings in your dashboard.
 
 ## Architecture
 
