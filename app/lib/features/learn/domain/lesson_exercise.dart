@@ -4,11 +4,11 @@
 /// the app forces every switch site to be updated, rather than silently
 /// falling through.
 ///
-/// vocab_card, reading_passage, recall_quiz, letter_card, and
-/// diacritic_intro are backed by real content right now
-/// (docs/feature-specs.md's other exercise types — grammar_explanation,
-/// listening_drill, pronunciation_recording, mastery_challenge — land in
-/// later milestones per docs/implementation-plan.md). Anything else
+/// vocab_card, reading_passage, recall_quiz, letter_card,
+/// diacritic_intro, and grammar_explanation are backed by real content
+/// right now (docs/feature-specs.md's other exercise types —
+/// listening_drill, pronunciation_recording, mastery_challenge — land
+/// in later milestones per docs/implementation-plan.md). Anything else
 /// resolves to [UnsupportedExercise], which the player skips visibly
 /// rather than crashing on unrecognized content.
 sealed class LessonExercise {
@@ -185,6 +185,33 @@ class DiacriticIntroExercise extends LessonExercise {
   final bool doublesConsonant;
 
   final List<DiacriticLetterForm> allLetterForms;
+}
+
+/// A single-concept explanation — for rules that apply to one specific
+/// case (e.g. how the ل in "Allah" is pronounced, or waqf/stop signs at
+/// the end of an ayah) rather than systematically across all 28 letters
+/// the way every other exercise type in this app does. That's exactly
+/// why this is its own type instead of forcing the content into
+/// DiacriticIntroExercise's 28-letter-grid shape.
+class GrammarExplanationExercise extends LessonExercise {
+  const GrammarExplanationExercise({
+    required super.id,
+    required super.sequenceOrder,
+    required this.titleEn,
+    required this.explanationShort,
+    required this.explanationFull,
+    this.exampleAyahText,
+    this.exampleAyahTranslation,
+  });
+
+  final String titleEn;
+  final String explanationShort;
+  final String explanationFull;
+
+  /// Both null or both non-null — an example ayah is optional context,
+  /// not every grammar point needs one.
+  final String? exampleAyahText;
+  final String? exampleAyahTranslation;
 }
 
 class UnsupportedExercise extends LessonExercise {

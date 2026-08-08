@@ -34,7 +34,8 @@ class LessonRepository {
           'exercise_reading_passage(start_ayah_id, end_ayah_id), '
           'exercise_recall_quiz(question, options, correct_option_index, tested_vocab_item_id, tested_letter_id), '
           'exercise_letter_card(letters(id, isolated_form, initial_form, medial_form, final_form, is_emphatic, name_arabic, name_transliteration, pronunciation_guide, articulation_point)), '
-          'exercise_diacritic_intro(diacritics(name_en, mark_unicode, placement, sound_description, explanation_short, reading_suffix, doubles_consonant))',
+          'exercise_diacritic_intro(diacritics(name_en, mark_unicode, placement, sound_description, explanation_short, reading_suffix, doubles_consonant)), '
+          'exercise_grammar_explanation(grammar_points(title_en, explanation_short, explanation_full), example_ayah:example_ayah_id(text_diacritized, translation_en))',
         )
         .eq('lesson_id', lessonId)
         .order('sequence_order', ascending: true) as List;
@@ -135,6 +136,19 @@ class LessonRepository {
             readingSuffix: diacritic['reading_suffix'] as String,
             doublesConsonant: diacritic['doubles_consonant'] as bool,
             allLetterForms: allLetterForms!,
+          );
+        case 'grammar_explanation':
+          final grammarEmbed = _unwrapEmbed(row['exercise_grammar_explanation']);
+          final grammarPoint = grammarEmbed['grammar_points'] as Map<String, dynamic>;
+          final exampleAyah = grammarEmbed['example_ayah'] as Map<String, dynamic>?;
+          return GrammarExplanationExercise(
+            id: id,
+            sequenceOrder: seq,
+            titleEn: grammarPoint['title_en'] as String,
+            explanationShort: grammarPoint['explanation_short'] as String,
+            explanationFull: grammarPoint['explanation_full'] as String,
+            exampleAyahText: exampleAyah?['text_diacritized'] as String?,
+            exampleAyahTranslation: exampleAyah?['translation_en'] as String?,
           );
         default:
           return UnsupportedExercise(id: id, sequenceOrder: seq, exerciseType: row['exercise_type'] as String);

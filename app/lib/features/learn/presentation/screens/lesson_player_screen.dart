@@ -225,6 +225,11 @@ class _LessonPlayerScreenState extends ConsumerState<LessonPlayerScreen> {
           exercise: exercise,
           onNext: () => _advance(all, graded: false),
         );
+      case GrammarExplanationExercise():
+        return _GrammarExplanationView(
+          exercise: exercise,
+          onNext: () => _advance(all, graded: false),
+        );
       case UnsupportedExercise():
         return _UnsupportedView(
           exerciseType: exercise.exerciseType,
@@ -552,6 +557,61 @@ class _QuizOptionButton extends StatelessWidget {
         side: color != null ? BorderSide(color: color, width: 2) : null,
       ),
       child: Text(label),
+    );
+  }
+}
+
+class _GrammarExplanationView extends StatelessWidget {
+  const _GrammarExplanationView({required this.exercise, required this.onNext});
+
+  final GrammarExplanationExercise exercise;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            exercise.titleEn,
+            style: AppTypography.accent(fontSize: 26, fontWeight: FontWeight.w600),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          Text(exercise.explanationShort, style: Theme.of(context).textTheme.bodyLarge, textAlign: TextAlign.center),
+          const SizedBox(height: 8),
+          Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              title: const Text('Learn more'),
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: const EdgeInsets.only(bottom: 8),
+              children: [
+                Text(exercise.explanationFull, style: Theme.of(context).textTheme.bodyMedium),
+              ],
+            ),
+          ),
+          if (exercise.exampleAyahText != null) ...[
+            const SizedBox(height: 8),
+            const Divider(),
+            const SizedBox(height: 8),
+            Text('Example', style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: 8),
+            Text(
+              exercise.exampleAyahText!,
+              style: AppTypography.arabic(fontSize: 28),
+              textAlign: TextAlign.right,
+              textDirection: TextDirection.rtl,
+            ),
+            const SizedBox(height: 8),
+            Text(exercise.exampleAyahTranslation!, style: Theme.of(context).textTheme.bodyMedium),
+          ],
+          const SizedBox(height: 32),
+          FilledButton(onPressed: onNext, child: const Text('Next')),
+        ],
+      ),
     );
   }
 }
