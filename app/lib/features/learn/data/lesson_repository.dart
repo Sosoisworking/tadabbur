@@ -287,10 +287,21 @@ final lessonRepositoryProvider = Provider<LessonRepository>((ref) {
   return LessonRepository(client);
 });
 
-final lessonsForUnitProvider = FutureProvider.family<List<Lesson>, int>((ref, unitId) {
+// autoDispose (unlike curriculumUnitsProvider/dueSrsItemsProvider): both
+// UnitDetailScreen and LessonPlayerScreen are genuinely pushed/popped
+// (not kept alive in an IndexedStack the way the bottom-nav tabs are),
+// so autoDispose actually does something here — the cached value is
+// discarded once nothing is watching it, forcing a fresh fetch next
+// time that lesson/unit is opened. Without this, content edited or
+// restructured server-side (e.g. migration 0011 deleting old exercises
+// and creating new ones for the same lesson) leaves a stale exercise
+// list cached indefinitely, which isn't just wrong data — recording an
+// attempt against a since-deleted exercise_id is a foreign-key error,
+// not just a display glitch.
+final lessonsForUnitProvider = FutureProvider.autoDispose.family<List<Lesson>, int>((ref, unitId) {
   return ref.watch(lessonRepositoryProvider).fetchLessonsForUnit(unitId);
 });
 
-final exercisesForLessonProvider = FutureProvider.family<List<LessonExercise>, int>((ref, lessonId) {
+final exercisesForLessonProvider = FutureProvider.autoDispose.family<List<LessonExercise>, int>((ref, lessonId) {
   return ref.watch(lessonRepositoryProvider).fetchExercisesForLesson(lessonId);
 });

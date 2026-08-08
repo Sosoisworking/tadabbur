@@ -70,23 +70,42 @@ class _LessonPlayerScreenState extends ConsumerState<LessonPlayerScreen> {
       if (isCorrect) _correct++;
     }
 
-    final attemptId = _lessonAttemptId;
-    if (attemptId != null) {
-      await ref.read(lessonRepositoryProvider).recordExerciseAttempt(
-            lessonAttemptId: attemptId,
-            exerciseId: exercise.id,
-            isCorrect: isCorrect,
-          );
-    }
+    // Errors here are surfaced, not swallowed like the SRS fire-and-forget
+    // calls above — a failed exercise_attempt/lesson_attempt write is a
+    // real "your progress didn't save" situation the user should know
+    // about and can retry, not a low-stakes background update. This is
+    // also what would have turned the earlier stale-exercise-id crash
+    // (fixed by making exercisesForLessonProvider autoDispose) into a
+    // recoverable message instead of an uncaught exception dump.
+    try {
+      final attemptId = _lessonAttemptId;
+      if (attemptId != null) {
+        await ref.read(lessonRepositoryProvider).recordExerciseAttempt(
+              lessonAttemptId: attemptId,
+              exerciseId: exercise.id,
+              isCorrect: isCorrect,
+            );
+      }
 
-    if (_index + 1 >= exercises.length) {
-      await _finish(attemptId);
-    } else {
-      setState(() {
-        _index++;
-        _selectedQuizOption = null;
-        _quizAnswered = false;
-      });
+      if (_index + 1 >= exercises.length) {
+        await _finish(attemptId);
+      } else {
+        setState(() {
+          _index++;
+          _selectedQuizOption = null;
+          _quizAnswered = false;
+        });
+      }
+    } catch (e) {
+      if (graded) {
+        _total--;
+        if (isCorrect) _correct--;
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not save your progress. Please try again.\n$e')),
+        );
+      }
     }
   }
 
