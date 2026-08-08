@@ -261,9 +261,9 @@ class _DiacriticIntroView extends StatelessWidget {
           child: GridView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 5,
-              mainAxisSpacing: 12,
-              childAspectRatio: 0.75,
+              crossAxisCount: 4,
+              mainAxisSpacing: 16,
+              childAspectRatio: 0.8,
             ),
             itemCount: exercise.allLetterForms.length,
             itemBuilder: (context, index) {
@@ -275,8 +275,8 @@ class _DiacriticIntroView extends StatelessWidget {
               return Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(combined, style: AppTypography.arabic(fontSize: 28)),
-                  const SizedBox(height: 2),
+                  Text(combined, style: AppTypography.arabic(fontSize: 40)),
+                  const SizedBox(height: 4),
                   Text(reading, style: Theme.of(context).textTheme.bodySmall),
                 ],
               );
