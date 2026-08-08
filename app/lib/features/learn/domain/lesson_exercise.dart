@@ -159,6 +159,7 @@ class DiacriticIntroExercise extends LessonExercise {
     required this.soundDescription,
     required this.explanationShort,
     required this.readingSuffix,
+    this.doublesConsonant = false,
     required this.allLetterForms,
   });
 
@@ -168,6 +169,14 @@ class DiacriticIntroExercise extends LessonExercise {
   final String soundDescription;
   final String explanationShort;
   final String readingSuffix;
+
+  /// True only for Shaddah: the base consonant is pronounced twice
+  /// (Saakin, then again with a harakah), so the reading is
+  /// `baseConsonant + baseConsonant + readingSuffix` (e.g. "Bba"), not
+  /// just `baseConsonant + readingSuffix` — the first mark that doesn't
+  /// fit the plain "append a suffix" pattern every other diacritic uses.
+  final bool doublesConsonant;
+
   final List<DiacriticLetterForm> allLetterForms;
 }
 

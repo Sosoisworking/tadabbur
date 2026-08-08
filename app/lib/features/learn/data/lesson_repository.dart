@@ -34,7 +34,7 @@ class LessonRepository {
           'exercise_reading_passage(start_ayah_id, end_ayah_id), '
           'exercise_recall_quiz(question, options, correct_option_index, tested_vocab_item_id, tested_letter_id), '
           'exercise_letter_card(letters(id, isolated_form, initial_form, medial_form, final_form, is_emphatic, name_arabic, name_transliteration, pronunciation_guide)), '
-          'exercise_diacritic_intro(diacritics(name_en, mark_unicode, placement, sound_description, explanation_short, reading_suffix))',
+          'exercise_diacritic_intro(diacritics(name_en, mark_unicode, placement, sound_description, explanation_short, reading_suffix, doubles_consonant))',
         )
         .eq('lesson_id', lessonId)
         .order('sequence_order', ascending: true) as List;
@@ -132,6 +132,7 @@ class LessonRepository {
             soundDescription: diacritic['sound_description'] as String,
             explanationShort: diacritic['explanation_short'] as String,
             readingSuffix: diacritic['reading_suffix'] as String,
+            doublesConsonant: diacritic['doubles_consonant'] as bool,
             allLetterForms: allLetterForms!,
           );
         default:

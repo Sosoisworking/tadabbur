@@ -271,7 +271,9 @@ class _DiacriticIntroView extends StatelessWidget {
               // Neither of these is stored anywhere — see
               // DiacriticIntroExercise's doc comment for why.
               final combined = letterForm.isolatedForm + exercise.markUnicode;
-              final reading = letterForm.baseConsonant + exercise.readingSuffix;
+              final reading = (exercise.doublesConsonant ? letterForm.baseConsonant : '') +
+                  letterForm.baseConsonant +
+                  exercise.readingSuffix;
               return Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
