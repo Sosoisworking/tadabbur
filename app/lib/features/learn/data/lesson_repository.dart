@@ -66,7 +66,7 @@ class LessonRepository {
     }
     final resolvedPassages = await _resolvePassageRanges(pendingPassages);
 
-    return rows.map((row) {
+    final result = rows.map((row) {
       final id = row['id'] as int;
       final seq = row['sequence_order'] as int;
 
@@ -85,12 +85,16 @@ class LessonRepository {
           );
         case 'recall_quiz':
           final quiz = _unwrapEmbed(row['exercise_recall_quiz']);
+          final shuffled = _shuffleOptions(
+            List<String>.from(quiz['options'] as List),
+            quiz['correct_option_index'] as int,
+          );
           return RecallQuizExercise(
             id: id,
             sequenceOrder: seq,
             question: quiz['question'] as String,
-            options: List<String>.from(quiz['options'] as List),
-            correctOptionIndex: quiz['correct_option_index'] as int,
+            options: shuffled.options,
+            correctOptionIndex: shuffled.correctIndex,
             testedVocabItemId: quiz['tested_vocab_item_id'] as int?,
             testedLetterId: quiz['tested_letter_id'] as int?,
           );
@@ -127,6 +131,31 @@ class LessonRepository {
           return UnsupportedExercise(id: id, sequenceOrder: seq, exerciseType: row['exercise_type'] as String);
       }
     }).toList();
+
+    // Shuffle question order only for lessons made entirely of quizzes
+    // (the new comprehensive "Fathah Quiz"/"Kasrah Quiz"/"Dhammah Quiz"
+    // lessons) — a mixed lesson interleaving e.g. letter_card with
+    // recall_quiz has that specific ordering for a reason (learn this
+    // letter, then get quizzed on exactly it), and shuffling it would
+    // break that pairing rather than just add variety.
+    if (result.isNotEmpty && result.every((exercise) => exercise is RecallQuizExercise)) {
+      result.shuffle();
+    }
+
+    return result;
+  }
+
+  /// Shuffles a quiz's options and remaps correct_option_index to match
+  /// — without this, a fixed correct_option_index per question (or, as
+  /// happened in migration 0011, the *same* index for every question in
+  /// a whole lesson) makes the answer guessable from position alone,
+  /// independent of whether the option text itself is randomized.
+  ({List<String> options, int correctIndex}) _shuffleOptions(List<String> options, int correctIndex) {
+    final order = List<int>.generate(options.length, (i) => i)..shuffle();
+    return (
+      options: [for (final i in order) options[i]],
+      correctIndex: order.indexOf(correctIndex),
+    );
   }
 
   /// PostgREST returns a 1:1 embed as a plain object when the child
