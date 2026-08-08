@@ -33,7 +33,7 @@ class LessonRepository {
           'exercise_vocab_card(vocab_items(id, arabic_text, transliteration, meaning_en, root_letters, wazn_pattern)), '
           'exercise_reading_passage(start_ayah_id, end_ayah_id), '
           'exercise_recall_quiz(question, options, correct_option_index, tested_vocab_item_id, tested_letter_id), '
-          'exercise_letter_card(letters(id, isolated_form, name_arabic, name_transliteration, pronunciation_guide))',
+          'exercise_letter_card(letters(id, isolated_form, initial_form, medial_form, final_form, is_emphatic, name_arabic, name_transliteration, pronunciation_guide))',
         )
         .eq('lesson_id', lessonId)
         .order('sequence_order', ascending: true) as List;
@@ -90,6 +90,10 @@ class LessonRepository {
             sequenceOrder: seq,
             letterId: letter['id'] as int,
             isolatedForm: letter['isolated_form'] as String,
+            initialForm: letter['initial_form'] as String,
+            medialForm: letter['medial_form'] as String,
+            finalForm: letter['final_form'] as String,
+            isEmphatic: letter['is_emphatic'] as bool,
             nameArabic: letter['name_arabic'] as String,
             nameTransliteration: letter['name_transliteration'] as String,
             pronunciationGuide: letter['pronunciation_guide'] as String,

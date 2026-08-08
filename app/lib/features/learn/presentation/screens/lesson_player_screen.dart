@@ -218,7 +218,7 @@ class _LetterCardView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -227,13 +227,62 @@ class _LetterCardView extends StatelessWidget {
           const SizedBox(height: 16),
           Text(exercise.nameArabic, style: AppTypography.arabic(fontSize: 28), textAlign: TextAlign.center),
           const SizedBox(height: 8),
-          Text(exercise.nameTransliteration, style: Theme.of(context).textTheme.titleMedium),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(exercise.nameTransliteration, style: Theme.of(context).textTheme.titleMedium),
+              if (exercise.isEmphatic) ...[
+                const SizedBox(width: 8),
+                Chip(
+                  label: const Text('heavy'),
+                  visualDensity: VisualDensity.compact,
+                  backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+                ),
+              ],
+            ],
+          ),
           const SizedBox(height: 8),
           Text(exercise.pronunciationGuide, style: Theme.of(context).textTheme.bodyLarge, textAlign: TextAlign.center),
+          const SizedBox(height: 24),
+          _PositionalFormsRow(exercise: exercise),
           const SizedBox(height: 32),
           FilledButton(onPressed: onNext, child: const Text('Next')),
         ],
       ),
+    );
+  }
+}
+
+/// Shows how the letter's shape changes depending on where it sits in a
+/// word — the Qaida book's "Letter Positions" section (docs reference:
+/// migration 0008). Non-connecting letters legitimately repeat the same
+/// glyph across two or more columns (see the domain doc comment on
+/// LetterCardExercise) — that's not a rendering bug.
+class _PositionalFormsRow extends StatelessWidget {
+  const _PositionalFormsRow({required this.exercise});
+
+  final LetterCardExercise exercise;
+
+  @override
+  Widget build(BuildContext context) {
+    final forms = [
+      ('Beginning', exercise.initialForm),
+      ('Middle', exercise.medialForm),
+      ('End', exercise.finalForm),
+    ];
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        for (final (label, form) in forms)
+          Column(
+            children: [
+              Text(form, style: AppTypography.arabic(fontSize: 32)),
+              const SizedBox(height: 4),
+              Text(label, style: Theme.of(context).textTheme.bodySmall),
+            ],
+          ),
+      ],
     );
   }
 }

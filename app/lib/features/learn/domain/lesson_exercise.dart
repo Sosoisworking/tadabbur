@@ -97,6 +97,10 @@ class LetterCardExercise extends LessonExercise {
     required super.sequenceOrder,
     required this.letterId,
     required this.isolatedForm,
+    required this.initialForm,
+    required this.medialForm,
+    required this.finalForm,
+    required this.isEmphatic,
     required this.nameArabic,
     required this.nameTransliteration,
     required this.pronunciationGuide,
@@ -107,6 +111,20 @@ class LetterCardExercise extends LessonExercise {
   /// display.
   final int letterId;
   final String isolatedForm;
+
+  /// Positional forms — non-connecting letters (ا د ذ ر ز و) have
+  /// initialForm == isolatedForm and medialForm == finalForm; that's
+  /// linguistically correct, not a data gap (see migration 0008).
+  final String initialForm;
+  final String medialForm;
+  final String finalForm;
+
+  /// One of the 7 "heavy"/emphatic letters (خ ص ض ط ظ غ ق) pronounced
+  /// with a full mouth — per the Qaida book's own framing, this is
+  /// worth surfacing right on the letter card, not buried in a later
+  /// Tajweed-only lesson.
+  final bool isEmphatic;
+
   final String nameArabic;
   final String nameTransliteration;
   final String pronunciationGuide;
