@@ -18,11 +18,11 @@ class ReviewScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.refresh_rounded),
-            SizedBox(width: 10),
-            Text('Review'),
+            Icon(Icons.refresh_rounded, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(width: 10),
+            const Text('Review'),
           ],
         ),
       ),

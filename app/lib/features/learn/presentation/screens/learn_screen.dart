@@ -21,11 +21,11 @@ class LearnScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.menu_book_rounded),
-            SizedBox(width: 10),
-            Text('Learn'),
+            Icon(Icons.menu_book_rounded, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(width: 10),
+            const Text('Learn'),
           ],
         ),
       ),
@@ -96,9 +96,11 @@ class _UnitTile extends StatelessWidget {
       child: ListTile(
         enabled: !locked,
         leading: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(color: badgeColor.withValues(alpha: 0.15), shape: BoxShape.circle),
-          child: Icon(unitThematicIcon(unit.title), color: badgeColor),
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(color: badgeColor, shape: BoxShape.circle),
+          alignment: Alignment.center,
+          child: unitThematicBadge(unit.title, size: 24, color: Colors.white),
         ),
         title: Text(unit.title, style: AppTypography.accent(fontSize: 18)),
         subtitle: Text(locked ? 'Complete earlier units to unlock' : unit.status.name),

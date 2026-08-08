@@ -21,7 +21,7 @@ class UnitDetailScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Row(
           children: [
-            Icon(unitThematicIcon(unitTitle ?? '')),
+            unitThematicBadge(unitTitle ?? '', size: 22, color: Theme.of(context).colorScheme.primary),
             const SizedBox(width: 10),
             Text(unitTitle ?? 'Unit'),
           ],
@@ -84,14 +84,17 @@ class _LessonTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
-                  color: accentColor.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
+                  color: accentColor,
+                  borderRadius: BorderRadius.circular(12),
                 ),
+                alignment: Alignment.center,
                 child: Icon(
                   _isQuiz ? Icons.quiz_rounded : Icons.menu_book_rounded,
-                  color: accentColor,
+                  color: Colors.white,
+                  size: 22,
                 ),
               ),
               const Spacer(),
