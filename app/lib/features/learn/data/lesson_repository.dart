@@ -33,7 +33,7 @@ class LessonRepository {
           'exercise_vocab_card(vocab_items(id, arabic_text, transliteration, meaning_en, root_letters, wazn_pattern)), '
           'exercise_reading_passage(start_ayah_id, end_ayah_id), '
           'exercise_recall_quiz(question, options, correct_option_index, tested_vocab_item_id, tested_letter_id), '
-          'exercise_letter_card(letters(id, isolated_form, initial_form, medial_form, final_form, is_emphatic, name_arabic, name_transliteration, pronunciation_guide)), '
+          'exercise_letter_card(letters(id, isolated_form, initial_form, medial_form, final_form, is_emphatic, name_arabic, name_transliteration, pronunciation_guide, articulation_point)), '
           'exercise_diacritic_intro(diacritics(name_en, mark_unicode, placement, sound_description, explanation_short, reading_suffix, doubles_consonant))',
         )
         .eq('lesson_id', lessonId)
@@ -120,6 +120,7 @@ class LessonRepository {
             nameArabic: letter['name_arabic'] as String,
             nameTransliteration: letter['name_transliteration'] as String,
             pronunciationGuide: letter['pronunciation_guide'] as String,
+            articulationPoint: letter['articulation_point'] as String,
           );
         case 'diacritic_intro':
           final diacritic = _unwrapEmbed(row['exercise_diacritic_intro'])['diacritics'] as Map<String, dynamic>;

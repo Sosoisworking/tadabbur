@@ -104,6 +104,7 @@ class LetterCardExercise extends LessonExercise {
     required this.nameArabic,
     required this.nameTransliteration,
     required this.pronunciationGuide,
+    required this.articulationPoint,
   });
 
   /// Needed to enter this letter into the user's SRS review queue
@@ -128,6 +129,12 @@ class LetterCardExercise extends LessonExercise {
   final String nameArabic;
   final String nameTransliteration;
   final String pronunciationGuide;
+
+  /// Makhraj — where in the mouth/throat this letter is articulated
+  /// (docs/database-schema.md migration 0017). Shown as secondary,
+  /// on-demand detail, not the first thing a beginner sees — this is
+  /// advanced phonetic detail, not needed to start recognizing letters.
+  final String articulationPoint;
 }
 
 /// One grid cell in a [DiacriticIntroExercise]: a letter's isolated form

@@ -329,7 +329,29 @@ class _LetterCardView extends StatelessWidget {
           Text(exercise.pronunciationGuide, style: Theme.of(context).textTheme.bodyLarge, textAlign: TextAlign.center),
           const SizedBox(height: 24),
           _PositionalFormsRow(exercise: exercise),
-          const SizedBox(height: 32),
+          const SizedBox(height: 16),
+          // Collapsed by default — makhraj detail is advanced phonetic
+          // information a beginner (this scaffold's Aisha persona)
+          // doesn't need to see before recognizing the letter itself;
+          // ExpansionTile manages its own open/closed state, so this
+          // stays a StatelessWidget rather than needing to become
+          // Stateful just for one optional section.
+          Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              title: const Text('Where is this pronounced?'),
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: const EdgeInsets.only(bottom: 8),
+              children: [
+                Text(
+                  exercise.articulationPoint,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
           FilledButton(onPressed: onNext, child: const Text('Next')),
         ],
       ),
