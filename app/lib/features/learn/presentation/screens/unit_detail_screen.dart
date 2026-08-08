@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/lesson_repository.dart';
 import '../../domain/lesson.dart';
+import '../unit_theme_icon.dart';
 
 class UnitDetailScreen extends ConsumerWidget {
   const UnitDetailScreen({super.key, required this.unitId, this.unitTitle});
@@ -17,7 +18,15 @@ class UnitDetailScreen extends ConsumerWidget {
     final lessonsAsync = ref.watch(lessonsForUnitProvider(unitId));
 
     return Scaffold(
-      appBar: AppBar(title: Text(unitTitle ?? 'Unit')),
+      appBar: AppBar(
+        title: Row(
+          children: [
+            Icon(unitThematicIcon(unitTitle ?? '')),
+            const SizedBox(width: 10),
+            Text(unitTitle ?? 'Unit'),
+          ],
+        ),
+      ),
       body: lessonsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(child: Text('Could not load lessons.\n$error', textAlign: TextAlign.center)),

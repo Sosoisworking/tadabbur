@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/curriculum_repository.dart';
 import '../../domain/curriculum_unit.dart';
+import '../unit_theme_icon.dart';
 
 /// Reference screen for the presentation layer pattern: watch a provider,
 /// handle loading/error/data explicitly (AsyncValue.when), no business
@@ -19,7 +20,15 @@ class LearnScreen extends ConsumerWidget {
     final unitsAsync = ref.watch(curriculumUnitsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Learn')),
+      appBar: AppBar(
+        title: const Row(
+          children: [
+            Icon(Icons.menu_book_rounded),
+            SizedBox(width: 10),
+            Text('Learn'),
+          ],
+        ),
+      ),
       body: unitsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(
@@ -75,30 +84,41 @@ class _UnitTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final locked = unit.status == UnitStatus.locked;
+    final scheme = Theme.of(context).colorScheme;
+    final badgeColor = switch (unit.status) {
+      UnitStatus.locked => scheme.onSurface.withValues(alpha: 0.35),
+      UnitStatus.inProgress || UnitStatus.completed => scheme.primary,
+      UnitStatus.mastered => scheme.secondary,
+    };
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
         enabled: !locked,
-        leading: _statusIcon(context, unit.status),
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: badgeColor.withValues(alpha: 0.15), shape: BoxShape.circle),
+          child: Icon(unitThematicIcon(unit.title), color: badgeColor),
+        ),
         title: Text(unit.title, style: AppTypography.accent(fontSize: 18)),
         subtitle: Text(locked ? 'Complete earlier units to unlock' : unit.status.name),
+        trailing: _statusBadge(context, unit.status),
         onTap: locked ? null : () => context.push('/learn/unit/${unit.id}', extra: unit.title),
       ),
     );
   }
 
-  Widget _statusIcon(BuildContext context, UnitStatus status) {
+  Widget? _statusBadge(BuildContext context, UnitStatus status) {
     final scheme = Theme.of(context).colorScheme;
     switch (status) {
       case UnitStatus.mastered:
         return Icon(Icons.star_rounded, color: scheme.secondary);
       case UnitStatus.completed:
-        return const Icon(Icons.check_circle_rounded, color: Colors.green);
-      case UnitStatus.inProgress:
-        return Icon(Icons.play_circle_outline_rounded, color: scheme.primary);
+        return Icon(Icons.check_circle_rounded, color: scheme.primary);
       case UnitStatus.locked:
         return const Icon(Icons.lock_outline_rounded, color: Colors.grey);
+      case UnitStatus.inProgress:
+        return null; // the badge color + subtitle already say "active"
     }
   }
 }

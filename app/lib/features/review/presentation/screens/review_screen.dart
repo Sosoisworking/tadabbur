@@ -17,7 +17,15 @@ class ReviewScreen extends ConsumerWidget {
     final dueItemsAsync = ref.watch(dueSrsItemsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Review')),
+      appBar: AppBar(
+        title: const Row(
+          children: [
+            Icon(Icons.refresh_rounded),
+            SizedBox(width: 10),
+            Text('Review'),
+          ],
+        ),
+      ),
       body: dueItemsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(
