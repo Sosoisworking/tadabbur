@@ -27,47 +27,57 @@ class ReviewScreen extends ConsumerWidget {
           ),
         ),
         data: (items) {
+          final Widget content;
           if (items.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.check_circle_outline_rounded, size: 64, color: Theme.of(context).colorScheme.primary),
-                    const SizedBox(height: 16),
-                    const Text('All caught up', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Nothing is due for review right now — come back after a lesson or two.',
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
+            content = Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.check_circle_outline_rounded, size: 64, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(height: 16),
+                const Text('All caught up', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                const Text(
+                  'Nothing is due for review right now — come back after a lesson or two.',
+                  textAlign: TextAlign.center,
                 ),
-              ),
+              ],
+            );
+          } else {
+            // ~10s per item is a rough placeholder estimate; worth tuning
+            // against real session timing data once this is live.
+            final estimatedMinutes = (items.length * 10 / 60).ceil().clamp(1, 999);
+            content = Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('${items.length}', style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold)),
+                Text(items.length == 1 ? 'item due' : 'items due'),
+                const SizedBox(height: 4),
+                Text('~$estimatedMinutes min', style: Theme.of(context).textTheme.bodySmall),
+                const SizedBox(height: 24),
+                FilledButton(
+                  onPressed: () => context.push('/review-session'),
+                  child: const Text('Start Review'),
+                ),
+              ],
             );
           }
 
-          // ~10s per item is a rough placeholder estimate; worth tuning
-          // against real session timing data once this is live.
-          final estimatedMinutes = (items.length * 10 / 60).ceil().clamp(1, 999);
-
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text('${items.length}', style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold)),
-                  Text(items.length == 1 ? 'item due' : 'items due'),
-                  const SizedBox(height: 4),
-                  Text('~$estimatedMinutes min', style: Theme.of(context).textTheme.bodySmall),
-                  const SizedBox(height: 24),
-                  FilledButton(
-                    onPressed: () => context.push('/review-session'),
-                    child: const Text('Start Review'),
+          // Same reasoning as LearnScreen's RefreshIndicator: the
+          // IndexedStack bottom-nav shell keeps this screen alive when
+          // switching tabs, so a stale due-queue (e.g. right after
+          // finishing a lesson elsewhere) needs an explicit way to
+          // refresh rather than relying on a rebuild that may not come.
+          return RefreshIndicator(
+            onRefresh: () => ref.refresh(dueSrsItemsProvider.future),
+            child: LayoutBuilder(
+              builder: (context, constraints) => SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: Center(
+                    child: Padding(padding: const EdgeInsets.all(24), child: content),
                   ),
-                ],
+                ),
               ),
             ),
           );

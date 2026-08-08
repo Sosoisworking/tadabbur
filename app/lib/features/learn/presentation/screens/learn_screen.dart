@@ -32,19 +32,36 @@ class LearnScreen extends ConsumerWidget {
             ),
           ),
         ),
-        data: (units) => units.isEmpty
-            ? Center(
-                child: Text(
-                  'No units yet — content is seeded per '
-                  'implementation-plan.md milestone M1.',
-                  style: Theme.of(context).textTheme.bodyMedium,
+        data: (units) => RefreshIndicator(
+          // Without this, new content added server-side (a new unit, a
+          // newly-unlocked one) never appears until something else
+          // happens to invalidate this provider — StatefulShellRoute's
+          // IndexedStack keeps this screen alive in the background when
+          // switching tabs, so simply revisiting Learn doesn't refetch
+          // the way it would with a normal push/pop navigation.
+          onRefresh: () => ref.refresh(curriculumUnitsProvider.future),
+          child: units.isEmpty
+              ? ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        'No units yet — content is seeded per '
+                        'implementation-plan.md milestone M1. Pull down to refresh.',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ),
+                  ],
+                )
+              : ListView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16),
+                  itemCount: units.length,
+                  itemBuilder: (context, index) => _UnitTile(unit: units[index]),
                 ),
-              )
-            : ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: units.length,
-                itemBuilder: (context, index) => _UnitTile(unit: units[index]),
-              ),
+        ),
       ),
     );
   }
