@@ -21,6 +21,8 @@ Widget unitThematicBadge(String title, {required double size, required Color col
   String? glyph;
   if (lower.contains('alphabet')) {
     glyph = 'ا'; // a bare letter — this unit teaches letters themselves
+  } else if (lower.contains('connecting letters')) {
+    glyph = 'بت'; // two letters joined together — the unit's whole subject
   } else if (lower.contains('vowel marks') || lower.contains('harakat')) {
     glyph = 'بَ'; // ب + Fathah — a letter carrying a vowel mark
   } else if (lower.contains('madd') || lower.contains('leen') || lower.contains('diphthong')) {

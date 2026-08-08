@@ -230,6 +230,11 @@ class _LessonPlayerScreenState extends ConsumerState<LessonPlayerScreen> {
           exercise: exercise,
           onNext: () => _advance(all, graded: false),
         );
+      case LetterChainExercise():
+        return _LetterChainView(
+          exercise: exercise,
+          onNext: () => _advance(all, graded: false),
+        );
       case UnsupportedExercise():
         return _UnsupportedView(
           exerciseType: exercise.exerciseType,
@@ -608,6 +613,59 @@ class _GrammarExplanationView extends StatelessWidget {
             const SizedBox(height: 8),
             Text(exercise.exampleAyahTranslation!, style: Theme.of(context).textTheme.bodyMedium),
           ],
+          const SizedBox(height: 32),
+          FilledButton(onPressed: onNext, child: const Text('Next')),
+        ],
+      ),
+    );
+  }
+}
+
+/// Shows a short unvocalized letter chain (e.g. "كتب") joined together,
+/// then the same letters broken apart underneath (isolated forms, right
+/// to left, same reading order) — the same font/shaping engine renders
+/// both from the same plain characters, so nothing here needs its own
+/// stored "isolated form" data (see LetterChainExercise's doc comment).
+class _LetterChainView extends StatelessWidget {
+  const _LetterChainView({required this.exercise, required this.onNext});
+
+  final LetterChainExercise exercise;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    final letters = exercise.chainText.split('');
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            exercise.chainText,
+            style: AppTypography.arabic(fontSize: 80),
+            textAlign: TextAlign.center,
+            textDirection: TextDirection.rtl,
+          ),
+          const SizedBox(height: 24),
+          Text('Same letters, joined together:', style: Theme.of(context).textTheme.bodyMedium),
+          const SizedBox(height: 12),
+          Directionality(
+            textDirection: TextDirection.rtl,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                for (var i = 0; i < letters.length; i++) ...[
+                  if (i > 0)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Text('+', style: Theme.of(context).textTheme.titleLarge),
+                    ),
+                  Text(letters[i], style: AppTypography.arabic(fontSize: 36)),
+                ],
+              ],
+            ),
+          ),
           const SizedBox(height: 32),
           FilledButton(onPressed: onNext, child: const Text('Next')),
         ],

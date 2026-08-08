@@ -214,6 +214,27 @@ class GrammarExplanationExercise extends LessonExercise {
   final String? exampleAyahTranslation;
 }
 
+/// A short, unvocalized (no diacritics) chain of 2-3 real letters joined
+/// together — the stepping stone between single letters (LetterCard)
+/// and full vocalized text (ReadingPassage). Pure shape recognition:
+/// no sound is attached, since without vowel marks these aren't
+/// actually pronounceable.
+class LetterChainExercise extends LessonExercise {
+  const LetterChainExercise({
+    required super.id,
+    required super.sequenceOrder,
+    required this.chainText,
+  });
+
+  /// Plain Arabic letters, e.g. "كتب". The per-letter breakdown shown
+  /// underneath isn't stored separately — every Arabic consonant is a
+  /// single Unicode code point regardless of position, so splitting
+  /// this string into characters and rendering each alone (isolated
+  /// form) or together (joined form) is the same underlying text; the
+  /// font's shaping engine handles the rest.
+  final String chainText;
+}
+
 class UnsupportedExercise extends LessonExercise {
   const UnsupportedExercise({
     required super.id,
