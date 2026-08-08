@@ -201,12 +201,64 @@ class _LessonPlayerScreenState extends ConsumerState<LessonPlayerScreen> {
             _advance(all, graded: false);
           },
         );
+      case DiacriticIntroExercise():
+        return _DiacriticIntroView(
+          exercise: exercise,
+          onNext: () => _advance(all, graded: false),
+        );
       case UnsupportedExercise():
         return _UnsupportedView(
           exerciseType: exercise.exerciseType,
           onSkip: () => _advance(all, graded: false),
         );
     }
+  }
+}
+
+class _DiacriticIntroView extends StatelessWidget {
+  const _DiacriticIntroView({required this.exercise, required this.onNext});
+
+  final DiacriticIntroExercise exercise;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+          child: Column(
+            children: [
+              Text(exercise.nameEn, style: AppTypography.accent(fontSize: 28, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              Text(exercise.soundDescription, style: Theme.of(context).textTheme.bodyLarge, textAlign: TextAlign.center),
+              const SizedBox(height: 8),
+              Text(exercise.explanationShort, style: Theme.of(context).textTheme.bodyMedium, textAlign: TextAlign.center),
+            ],
+          ),
+        ),
+        const Divider(height: 24),
+        Expanded(
+          child: GridView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5),
+            itemCount: exercise.allLetterForms.length,
+            itemBuilder: (context, index) {
+              // The combined glyph is computed here, not stored anywhere
+              // — see DiacriticIntroExercise's doc comment for why.
+              final combined = exercise.allLetterForms[index] + exercise.markUnicode;
+              return Center(
+                child: Text(combined, style: AppTypography.arabic(fontSize: 28)),
+              );
+            },
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: FilledButton(onPressed: onNext, child: const Text('Next')),
+        ),
+      ],
+    );
   }
 }
 

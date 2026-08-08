@@ -33,10 +33,23 @@ class LessonRepository {
           'exercise_vocab_card(vocab_items(id, arabic_text, transliteration, meaning_en, root_letters, wazn_pattern)), '
           'exercise_reading_passage(start_ayah_id, end_ayah_id), '
           'exercise_recall_quiz(question, options, correct_option_index, tested_vocab_item_id, tested_letter_id), '
-          'exercise_letter_card(letters(id, isolated_form, initial_form, medial_form, final_form, is_emphatic, name_arabic, name_transliteration, pronunciation_guide))',
+          'exercise_letter_card(letters(id, isolated_form, initial_form, medial_form, final_form, is_emphatic, name_arabic, name_transliteration, pronunciation_guide)), '
+          'exercise_diacritic_intro(diacritics(name_en, mark_unicode, placement, sound_description, explanation_short))',
         )
         .eq('lesson_id', lessonId)
         .order('sequence_order', ascending: true) as List;
+
+    // Only fetched when this lesson actually has a diacritic_intro
+    // exercise — every letter's isolated form, for that exercise's
+    // reading-practice grid (see DiacriticIntroExercise's doc comment).
+    List<String>? allLetterForms;
+    if (rows.any((row) => row['exercise_type'] == 'diacritic_intro')) {
+      final letterRows = await _client
+          .from('letters')
+          .select('isolated_form')
+          .order('sequence_order', ascending: true) as List;
+      allLetterForms = letterRows.map((row) => row['isolated_form'] as String).toList();
+    }
 
     // Reading passages need a second round trip — a passage spans a
     // *range* of ayat, which a single-row FK embed can't express — so
@@ -97,6 +110,18 @@ class LessonRepository {
             nameArabic: letter['name_arabic'] as String,
             nameTransliteration: letter['name_transliteration'] as String,
             pronunciationGuide: letter['pronunciation_guide'] as String,
+          );
+        case 'diacritic_intro':
+          final diacritic = _unwrapEmbed(row['exercise_diacritic_intro'])['diacritics'] as Map<String, dynamic>;
+          return DiacriticIntroExercise(
+            id: id,
+            sequenceOrder: seq,
+            nameEn: diacritic['name_en'] as String,
+            markUnicode: diacritic['mark_unicode'] as String,
+            placement: diacritic['placement'] as String,
+            soundDescription: diacritic['sound_description'] as String,
+            explanationShort: diacritic['explanation_short'] as String,
+            allLetterForms: allLetterForms!,
           );
         default:
           return UnsupportedExercise(id: id, sequenceOrder: seq, exerciseType: row['exercise_type'] as String);
@@ -215,7 +240,45 @@ class LessonRepository {
           .from('user_unit_progress')
           .update({'status': 'completed', 'completed_at': DateTime.now().toUtc().toIso8601String()})
           .match({'user_id': userId, 'unit_id': unitId});
+
+      await _unlockNextUnit(userId, unitId);
     }
+  }
+
+  /// Without this, completing a unit does nothing to the *next* one —
+  /// only the very first unit in a track ever gets a user_unit_progress
+  /// row, via the handle_new_auth_user trigger (migration 0002). That
+  /// left every unit past the first permanently unreachable through
+  /// normal play, not just a cosmetic gap.
+  Future<void> _unlockNextUnit(String userId, int completedUnitId) async {
+    final completedUnit = await _client
+        .from('units')
+        .select('track_id, sequence_order')
+        .eq('id', completedUnitId)
+        .single();
+
+    final nextUnit = await _client
+        .from('units')
+        .select('id')
+        .eq('track_id', completedUnit['track_id'] as int)
+        .eq('sequence_order', (completedUnit['sequence_order'] as int) + 1)
+        .maybeSingle();
+
+    if (nextUnit == null) return; // completed unit was the last in the track
+
+    // ignoreDuplicates: never overwrite existing progress on the next
+    // unit (e.g. if it's somehow already in_progress/completed) — this
+    // only ever creates the row when it's genuinely absent.
+    await _client.from('user_unit_progress').upsert(
+      {
+        'user_id': userId,
+        'unit_id': nextUnit['id'],
+        'status': 'in_progress',
+        'started_at': DateTime.now().toUtc().toIso8601String(),
+      },
+      onConflict: 'user_id,unit_id',
+      ignoreDuplicates: true,
+    );
   }
 }
 

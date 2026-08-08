@@ -90,11 +90,31 @@ CREATE TABLE grammar_points (
 CREATE TABLE letters (
   id                     SERIAL PRIMARY KEY,
   isolated_form          TEXT NOT NULL,
+  initial_form           TEXT,    -- added migration 0008; non-connecting letters repeat isolated/final here, correctly
+  medial_form            TEXT,    -- added migration 0008
+  final_form             TEXT,    -- added migration 0008
+  is_emphatic            BOOLEAN NOT NULL DEFAULT FALSE,  -- added migration 0008 — the 7 "heavy" letters
   name_arabic            TEXT NOT NULL,
   name_transliteration   TEXT NOT NULL,
   pronunciation_guide    TEXT NOT NULL,
   sequence_order         INT NOT NULL UNIQUE,
   audio_url              TEXT NOT NULL
+);
+
+-- Added in migration 0010 — the three short vowel marks (Fathah,
+-- Kasrah, Dhammah). Combination glyphs (e.g. "بَ") are computed
+-- client-side as isolated_form + mark_unicode, not stored — see that
+-- migration's header comment for why a join table isn't needed here.
+CREATE TABLE diacritics (
+  id                 SERIAL PRIMARY KEY,
+  name_en            TEXT NOT NULL,
+  mark_unicode       TEXT NOT NULL,
+  placement          TEXT NOT NULL CHECK (placement IN ('above','below')),
+  sound_description  TEXT NOT NULL,
+  explanation_short  TEXT NOT NULL,
+  explanation_full   TEXT NOT NULL,
+  sequence_order     INT NOT NULL UNIQUE,
+  audio_url          TEXT NOT NULL
 );
 ```
 
@@ -109,7 +129,7 @@ CREATE TABLE exercises (
   exercise_type  TEXT NOT NULL CHECK (exercise_type IN
                    ('vocab_card','grammar_explanation','reading_passage',
                     'listening_drill','pronunciation_recording','recall_quiz',
-                    'mastery_challenge','letter_card')), -- letter_card added in migration 0003
+                    'mastery_challenge','letter_card','diacritic_intro')), -- letter_card: migration 0003, diacritic_intro: migration 0010
   sequence_order INT NOT NULL,
   UNIQUE (lesson_id, sequence_order)
 );
@@ -148,8 +168,15 @@ CREATE TABLE exercise_recall_quiz (
   exercise_id          INT PRIMARY KEY REFERENCES exercises(id),
   question             TEXT NOT NULL,
   options              JSONB NOT NULL,   -- ["...", "...", "...", "..."]
-  correct_option_index SMALLINT NOT NULL
+  correct_option_index SMALLINT NOT NULL,
+  tested_vocab_item_id INT REFERENCES vocab_items(id),  -- added migration 0007
+  tested_letter_id     INT REFERENCES letters(id)       -- added migration 0007
 );
+-- tested_vocab_item_id/tested_letter_id: both nullable and mutually
+-- optional (not "exactly one"), so answering this quiz can grade that
+-- item's SRS schedule directly (feature-specs.md §3) — a quiz testing
+-- pure comprehension with no single trackable item is a legitimate case
+-- where both stay null.
 
 CREATE TABLE exercise_mastery_challenge (
   exercise_id       INT PRIMARY KEY REFERENCES exercises(id),
@@ -159,6 +186,11 @@ CREATE TABLE exercise_mastery_challenge (
 CREATE TABLE exercise_letter_card (
   exercise_id  INT PRIMARY KEY REFERENCES exercises(id),
   letter_id    INT NOT NULL REFERENCES letters(id)
+);
+
+CREATE TABLE exercise_diacritic_intro (
+  exercise_id   INT PRIMARY KEY REFERENCES exercises(id),
+  diacritic_id  INT NOT NULL REFERENCES diacritics(id)
 );
 ```
 

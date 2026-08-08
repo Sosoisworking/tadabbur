@@ -4,13 +4,13 @@
 /// the app forces every switch site to be updated, rather than silently
 /// falling through.
 ///
-/// vocab_card, reading_passage, recall_quiz, and letter_card are backed
-/// by real content right now (docs/feature-specs.md's other exercise
-/// types — grammar_explanation, listening_drill, pronunciation_recording,
-/// mastery_challenge — land in later milestones per
-/// docs/implementation-plan.md). Anything else resolves to
-/// [UnsupportedExercise], which the player skips visibly rather than
-/// crashing on unrecognized content.
+/// vocab_card, reading_passage, recall_quiz, letter_card, and
+/// diacritic_intro are backed by real content right now
+/// (docs/feature-specs.md's other exercise types — grammar_explanation,
+/// listening_drill, pronunciation_recording, mastery_challenge — land in
+/// later milestones per docs/implementation-plan.md). Anything else
+/// resolves to [UnsupportedExercise], which the player skips visibly
+/// rather than crashing on unrecognized content.
 sealed class LessonExercise {
   const LessonExercise({required this.id, required this.sequenceOrder});
 
@@ -128,6 +128,33 @@ class LetterCardExercise extends LessonExercise {
   final String nameArabic;
   final String nameTransliteration;
   final String pronunciationGuide;
+}
+
+/// Introduces one vowel mark (Fathah/Kasrah/Dhammah, ...) and shows it
+/// applied across every letter for reading practice. [allLetterForms] is
+/// deliberately just the 28 isolated forms, not 28 precomputed
+/// combination strings — the mark is a real Unicode combining character
+/// (docs/database-schema.md's migration 0010), so `letterForm +
+/// markUnicode` renders the correct combined glyph without needing that
+/// data duplicated anywhere.
+class DiacriticIntroExercise extends LessonExercise {
+  const DiacriticIntroExercise({
+    required super.id,
+    required super.sequenceOrder,
+    required this.nameEn,
+    required this.markUnicode,
+    required this.placement,
+    required this.soundDescription,
+    required this.explanationShort,
+    required this.allLetterForms,
+  });
+
+  final String nameEn;
+  final String markUnicode;
+  final String placement;
+  final String soundDescription;
+  final String explanationShort;
+  final List<String> allLetterForms;
 }
 
 class UnsupportedExercise extends LessonExercise {
