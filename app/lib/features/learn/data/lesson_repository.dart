@@ -34,21 +34,27 @@ class LessonRepository {
           'exercise_reading_passage(start_ayah_id, end_ayah_id), '
           'exercise_recall_quiz(question, options, correct_option_index, tested_vocab_item_id, tested_letter_id), '
           'exercise_letter_card(letters(id, isolated_form, initial_form, medial_form, final_form, is_emphatic, name_arabic, name_transliteration, pronunciation_guide)), '
-          'exercise_diacritic_intro(diacritics(name_en, mark_unicode, placement, sound_description, explanation_short))',
+          'exercise_diacritic_intro(diacritics(name_en, mark_unicode, placement, sound_description, explanation_short, reading_suffix))',
         )
         .eq('lesson_id', lessonId)
         .order('sequence_order', ascending: true) as List;
 
     // Only fetched when this lesson actually has a diacritic_intro
-    // exercise — every letter's isolated form, for that exercise's
-    // reading-practice grid (see DiacriticIntroExercise's doc comment).
-    List<String>? allLetterForms;
+    // exercise — every letter's isolated form + base consonant, for
+    // that exercise's reading-practice grid (see DiacriticIntroExercise
+    // and DiacriticLetterForm's doc comments).
+    List<DiacriticLetterForm>? allLetterForms;
     if (rows.any((row) => row['exercise_type'] == 'diacritic_intro')) {
       final letterRows = await _client
           .from('letters')
-          .select('isolated_form')
+          .select('isolated_form, base_consonant')
           .order('sequence_order', ascending: true) as List;
-      allLetterForms = letterRows.map((row) => row['isolated_form'] as String).toList();
+      allLetterForms = letterRows
+          .map((row) => DiacriticLetterForm(
+                isolatedForm: row['isolated_form'] as String,
+                baseConsonant: row['base_consonant'] as String,
+              ))
+          .toList();
     }
 
     // Reading passages need a second round trip — a passage spans a
@@ -125,6 +131,7 @@ class LessonRepository {
             placement: diacritic['placement'] as String,
             soundDescription: diacritic['sound_description'] as String,
             explanationShort: diacritic['explanation_short'] as String,
+            readingSuffix: diacritic['reading_suffix'] as String,
             allLetterForms: allLetterForms!,
           );
         default:

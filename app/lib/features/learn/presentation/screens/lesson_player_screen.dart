@@ -260,14 +260,25 @@ class _DiacriticIntroView extends StatelessWidget {
         Expanded(
           child: GridView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 5,
+              mainAxisSpacing: 12,
+              childAspectRatio: 0.75,
+            ),
             itemCount: exercise.allLetterForms.length,
             itemBuilder: (context, index) {
-              // The combined glyph is computed here, not stored anywhere
-              // — see DiacriticIntroExercise's doc comment for why.
-              final combined = exercise.allLetterForms[index] + exercise.markUnicode;
-              return Center(
-                child: Text(combined, style: AppTypography.arabic(fontSize: 28)),
+              final letterForm = exercise.allLetterForms[index];
+              // Neither of these is stored anywhere — see
+              // DiacriticIntroExercise's doc comment for why.
+              final combined = letterForm.isolatedForm + exercise.markUnicode;
+              final reading = letterForm.baseConsonant + exercise.readingSuffix;
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(combined, style: AppTypography.arabic(fontSize: 28)),
+                  const SizedBox(height: 2),
+                  Text(reading, style: Theme.of(context).textTheme.bodySmall),
+                ],
               );
             },
           ),

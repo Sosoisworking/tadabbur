@@ -130,13 +130,25 @@ class LetterCardExercise extends LessonExercise {
   final String pronunciationGuide;
 }
 
+/// One grid cell in a [DiacriticIntroExercise]: a letter's isolated form
+/// plus its base consonant sound (e.g. "B" for ب), so the UI can show a
+/// pronunciation label under the combined glyph, not just the Arabic on
+/// its own (docs/database-schema.md migration 0013).
+class DiacriticLetterForm {
+  const DiacriticLetterForm({required this.isolatedForm, required this.baseConsonant});
+
+  final String isolatedForm;
+  final String baseConsonant;
+}
+
 /// Introduces one vowel mark (Fathah/Kasrah/Dhammah, ...) and shows it
-/// applied across every letter for reading practice. [allLetterForms] is
-/// deliberately just the 28 isolated forms, not 28 precomputed
-/// combination strings — the mark is a real Unicode combining character
-/// (docs/database-schema.md's migration 0010), so `letterForm +
-/// markUnicode` renders the correct combined glyph without needing that
-/// data duplicated anywhere.
+/// applied across every letter for reading practice. Combined glyphs
+/// (e.g. "بَ") are computed as `isolatedForm + markUnicode`, and reading
+/// labels (e.g. "Ba") as `baseConsonant + readingSuffix` — neither is
+/// precomputed and stored; the mark is a real Unicode combining
+/// character and the reading is pure string concatenation, so there's
+/// nothing here with an independent existence worth duplicating in the
+/// database.
 class DiacriticIntroExercise extends LessonExercise {
   const DiacriticIntroExercise({
     required super.id,
@@ -146,6 +158,7 @@ class DiacriticIntroExercise extends LessonExercise {
     required this.placement,
     required this.soundDescription,
     required this.explanationShort,
+    required this.readingSuffix,
     required this.allLetterForms,
   });
 
@@ -154,7 +167,8 @@ class DiacriticIntroExercise extends LessonExercise {
   final String placement;
   final String soundDescription;
   final String explanationShort;
-  final List<String> allLetterForms;
+  final String readingSuffix;
+  final List<DiacriticLetterForm> allLetterForms;
 }
 
 class UnsupportedExercise extends LessonExercise {
