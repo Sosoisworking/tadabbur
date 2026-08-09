@@ -5,12 +5,13 @@
 /// falling through.
 ///
 /// vocab_card, reading_passage, recall_quiz, letter_card,
-/// diacritic_intro, and grammar_explanation are backed by real content
-/// right now (docs/feature-specs.md's other exercise types —
-/// listening_drill, pronunciation_recording, mastery_challenge — land
-/// in later milestones per docs/implementation-plan.md). Anything else
-/// resolves to [UnsupportedExercise], which the player skips visibly
-/// rather than crashing on unrecognized content.
+/// diacritic_intro, grammar_explanation, letter_chain, knowledge_card,
+/// and prayer_step are backed by real content right now
+/// (docs/feature-specs.md's other exercise types — listening_drill,
+/// pronunciation_recording, mastery_challenge — land in later
+/// milestones per docs/implementation-plan.md). Anything else resolves
+/// to [UnsupportedExercise], which the player skips visibly rather
+/// than crashing on unrecognized content.
 sealed class LessonExercise {
   const LessonExercise({required this.id, required this.sequenceOrder});
 
@@ -233,6 +234,52 @@ class LetterChainExercise extends LessonExercise {
   /// form) or together (joined form) is the same underlying text; the
   /// font's shaping engine handles the rest.
   final String chainText;
+}
+
+/// A general "explain a concept" card — structurally identical to
+/// [GrammarExplanationExercise] (title, short/full explanation) but
+/// deliberately a separate type: grammar_explanation is scoped to
+/// Quranic Arabic reading/language (nahw/sarf/tajweed/script), while
+/// this backs practical worship content (e.g. "The Importance of
+/// Wudu") that has nothing to do with the language track. No example
+/// ayah slot — that concept doesn't apply to fiqh content the way it
+/// does to a grammar point illustrated by a Quranic phrase.
+class KnowledgeCardExercise extends LessonExercise {
+  const KnowledgeCardExercise({
+    required super.id,
+    required super.sequenceOrder,
+    required this.titleEn,
+    required this.explanationShort,
+    required this.explanationFull,
+  });
+
+  final String titleEn;
+  final String explanationShort;
+  final String explanationFull;
+}
+
+/// One step in a physical+verbal procedure (Wudu, Salah) — an
+/// instruction, and optionally an Arabic phrase to say with it.
+/// Everything but [instructionEn] is nullable: most Wudu steps are
+/// pure action with nothing to say (e.g. washing the arms), and the
+/// two recitation steps that do have a phrase don't have a
+/// [repeatCount] (each is said once, not "x3").
+class PrayerStepExercise extends LessonExercise {
+  const PrayerStepExercise({
+    required super.id,
+    required super.sequenceOrder,
+    required this.instructionEn,
+    this.arabicText,
+    this.transliteration,
+    this.translationEn,
+    this.repeatCount,
+  });
+
+  final String instructionEn;
+  final String? arabicText;
+  final String? transliteration;
+  final String? translationEn;
+  final int? repeatCount;
 }
 
 class UnsupportedExercise extends LessonExercise {

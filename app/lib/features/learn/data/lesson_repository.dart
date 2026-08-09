@@ -36,7 +36,9 @@ class LessonRepository {
           'exercise_letter_card(letters(id, isolated_form, initial_form, medial_form, final_form, is_emphatic, name_arabic, name_transliteration, pronunciation_guide, articulation_point)), '
           'exercise_diacritic_intro(diacritics(name_en, mark_unicode, placement, sound_description, explanation_short, reading_suffix, doubles_consonant)), '
           'exercise_grammar_explanation(grammar_points(title_en, explanation_short, explanation_full), example_ayah:example_ayah_id(text_diacritized, translation_en)), '
-          'exercise_letter_chain(chain_text)',
+          'exercise_letter_chain(chain_text), '
+          'exercise_knowledge_card(knowledge_points(title_en, explanation_short, explanation_full)), '
+          'exercise_prayer_step(instruction_en, arabic_text, transliteration, translation_en, repeat_count)',
         )
         .eq('lesson_id', lessonId)
         .order('sequence_order', ascending: true) as List;
@@ -157,6 +159,26 @@ class LessonRepository {
             id: id,
             sequenceOrder: seq,
             chainText: chain['chain_text'] as String,
+          );
+        case 'knowledge_card':
+          final knowledgePoint = _unwrapEmbed(row['exercise_knowledge_card'])['knowledge_points'] as Map<String, dynamic>;
+          return KnowledgeCardExercise(
+            id: id,
+            sequenceOrder: seq,
+            titleEn: knowledgePoint['title_en'] as String,
+            explanationShort: knowledgePoint['explanation_short'] as String,
+            explanationFull: knowledgePoint['explanation_full'] as String,
+          );
+        case 'prayer_step':
+          final step = _unwrapEmbed(row['exercise_prayer_step']);
+          return PrayerStepExercise(
+            id: id,
+            sequenceOrder: seq,
+            instructionEn: step['instruction_en'] as String,
+            arabicText: step['arabic_text'] as String?,
+            transliteration: step['transliteration'] as String?,
+            translationEn: step['translation_en'] as String?,
+            repeatCount: step['repeat_count'] as int?,
           );
         default:
           return UnsupportedExercise(id: id, sequenceOrder: seq, exerciseType: row['exercise_type'] as String);

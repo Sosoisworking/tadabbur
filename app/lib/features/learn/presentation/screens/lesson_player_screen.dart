@@ -235,6 +235,16 @@ class _LessonPlayerScreenState extends ConsumerState<LessonPlayerScreen> {
           exercise: exercise,
           onNext: () => _advance(all, graded: false),
         );
+      case KnowledgeCardExercise():
+        return _KnowledgeCardView(
+          exercise: exercise,
+          onNext: () => _advance(all, graded: false),
+        );
+      case PrayerStepExercise():
+        return _PrayerStepView(
+          exercise: exercise,
+          onNext: () => _advance(all, graded: false),
+        );
       case UnsupportedExercise():
         return _UnsupportedView(
           exerciseType: exercise.exerciseType,
@@ -666,6 +676,138 @@ class _LetterChainView extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(height: 32),
+          FilledButton(onPressed: onNext, child: const Text('Next')),
+        ],
+      ),
+    );
+  }
+}
+
+/// Near-identical to _GrammarExplanationView minus the example-ayah
+/// section (KnowledgeCardExercise has no such concept — see its domain
+/// doc comment on why this is a separate type rather than reusing
+/// grammar_explanation).
+class _KnowledgeCardView extends StatelessWidget {
+  const _KnowledgeCardView({required this.exercise, required this.onNext});
+
+  final KnowledgeCardExercise exercise;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            exercise.titleEn,
+            style: AppTypography.accent(fontSize: 26, fontWeight: FontWeight.w600),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          Text(exercise.explanationShort, style: Theme.of(context).textTheme.bodyLarge, textAlign: TextAlign.center),
+          const SizedBox(height: 8),
+          Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              title: const Text('Learn more'),
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: const EdgeInsets.only(bottom: 8),
+              children: [
+                Text(exercise.explanationFull, style: Theme.of(context).textTheme.bodyMedium),
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
+          FilledButton(onPressed: onNext, child: const Text('Next')),
+        ],
+      ),
+    );
+  }
+}
+
+/// One step of a physical+verbal procedure (Wudu, Salah): an
+/// instruction, and — for steps that involve speech — an Arabic phrase
+/// card with its transliteration, translation, and how many times to
+/// repeat it. The Arabic card only renders when there's actually
+/// something to say (most Wudu steps are pure action).
+class _PrayerStepView extends StatelessWidget {
+  const _PrayerStepView({required this.exercise, required this.onNext});
+
+  final PrayerStepExercise exercise;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Step ${exercise.sequenceOrder}',
+            style: Theme.of(context).textTheme.labelLarge,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            exercise.instructionEn,
+            style: Theme.of(context).textTheme.bodyLarge,
+            textAlign: TextAlign.center,
+          ),
+          if (exercise.arabicText != null) ...[
+            const SizedBox(height: 24),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    if (exercise.repeatCount != null) ...[
+                      Chip(
+                        label: Text('x${exercise.repeatCount}'),
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    Text(
+                      exercise.arabicText!,
+                      style: AppTypography.arabic(fontSize: 32),
+                      textAlign: TextAlign.center,
+                      textDirection: TextDirection.rtl,
+                    ),
+                    if (exercise.transliteration != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        exercise.transliteration!,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontStyle: FontStyle.italic),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                    if (exercise.translationEn != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        exercise.translationEn!,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ] else if (exercise.repeatCount != null) ...[
+            const SizedBox(height: 16),
+            Center(
+              child: Chip(
+                label: Text('x${exercise.repeatCount}'),
+                visualDensity: VisualDensity.compact,
+                backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+              ),
+            ),
+          ],
           const SizedBox(height: 32),
           FilledButton(onPressed: onNext, child: const Text('Next')),
         ],
