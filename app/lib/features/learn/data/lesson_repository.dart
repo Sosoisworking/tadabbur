@@ -35,7 +35,7 @@ class LessonRepository {
           'exercise_recall_quiz(question, options, correct_option_index, tested_vocab_item_id, tested_letter_id), '
           'exercise_letter_card(letters(id, isolated_form, initial_form, medial_form, final_form, is_emphatic, name_arabic, name_transliteration, pronunciation_guide, articulation_point)), '
           'exercise_diacritic_intro(diacritics(name_en, mark_unicode, placement, sound_description, explanation_short, reading_suffix, doubles_consonant)), '
-          'exercise_grammar_explanation(grammar_points(title_en, explanation_short, explanation_full), example_ayah:example_ayah_id(text_diacritized, translation_en)), '
+          'exercise_grammar_explanation(grammar_points(title_en, explanation_short, explanation_full), example_ayah:example_ayah_id(text_diacritized, transliteration, translation_en)), '
           'exercise_letter_chain(chain_text), '
           'exercise_knowledge_card(knowledge_points(title_en, explanation_short, explanation_full)), '
           'exercise_prayer_step(instruction_en, arabic_text, transliteration, translation_en, repeat_count)',
@@ -151,6 +151,7 @@ class LessonRepository {
             explanationShort: grammarPoint['explanation_short'] as String,
             explanationFull: grammarPoint['explanation_full'] as String,
             exampleAyahText: exampleAyah?['text_diacritized'] as String?,
+            exampleAyahTransliteration: exampleAyah?['transliteration'] as String?,
             exampleAyahTranslation: exampleAyah?['translation_en'] as String?,
           );
         case 'letter_chain':
@@ -238,7 +239,7 @@ class LessonRepository {
 
       final ayatRows = await _client
           .from('ayat')
-          .select('ayah_number, text_diacritized, translation_en')
+          .select('ayah_number, text_diacritized, transliteration, translation_en')
           .eq('surah_number', surahNumber)
           .gte('ayah_number', startAyah)
           .lte('ayah_number', endAyah)
@@ -251,6 +252,7 @@ class LessonRepository {
             .map((row) => ReadingPassageAyah(
                   ayahNumber: row['ayah_number'] as int,
                   textDiacritized: row['text_diacritized'] as String,
+                  transliteration: row['transliteration'] as String,
                   translationEn: row['translation_en'] as String,
                 ))
             .toList(),

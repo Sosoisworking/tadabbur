@@ -46,11 +46,13 @@ class ReadingPassageAyah {
   const ReadingPassageAyah({
     required this.ayahNumber,
     required this.textDiacritized,
+    required this.transliteration,
     required this.translationEn,
   });
 
   final int ayahNumber;
   final String textDiacritized;
+  final String transliteration;
   final String translationEn;
 }
 
@@ -202,6 +204,7 @@ class GrammarExplanationExercise extends LessonExercise {
     required this.explanationShort,
     required this.explanationFull,
     this.exampleAyahText,
+    this.exampleAyahTransliteration,
     this.exampleAyahTranslation,
   });
 
@@ -209,9 +212,10 @@ class GrammarExplanationExercise extends LessonExercise {
   final String explanationShort;
   final String explanationFull;
 
-  /// Both null or both non-null — an example ayah is optional context,
-  /// not every grammar point needs one.
+  /// All three null together or all three non-null together — an
+  /// example ayah is optional context, not every grammar point needs one.
   final String? exampleAyahText;
+  final String? exampleAyahTransliteration;
   final String? exampleAyahTranslation;
 }
 

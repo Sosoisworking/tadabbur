@@ -472,6 +472,11 @@ class _ReadingPassageView extends StatelessWidget {
                     textDirection: TextDirection.rtl,
                   ),
                   const SizedBox(height: 8),
+                  Text(
+                    ayah.transliteration,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic),
+                  ),
+                  const SizedBox(height: 4),
                   Text(ayah.translationEn, style: Theme.of(context).textTheme.bodyMedium),
                 ],
               );
@@ -621,6 +626,11 @@ class _GrammarExplanationView extends StatelessWidget {
               textDirection: TextDirection.rtl,
             ),
             const SizedBox(height: 8),
+            Text(
+              exercise.exampleAyahTransliteration!,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic),
+            ),
+            const SizedBox(height: 4),
             Text(exercise.exampleAyahTranslation!, style: Theme.of(context).textTheme.bodyMedium),
           ],
           const SizedBox(height: 32),
