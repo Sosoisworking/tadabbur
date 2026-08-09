@@ -24,9 +24,9 @@ class CurriculumRepository {
       throw StateError('fetchUnitsForCurrentUser called with no signed-in user');
     }
 
-    // Units left-joined with this user's progress row, if one exists yet
-    // (a unit the user hasn't reached has no user_unit_progress row at
-    // all, per the schema — absence means "locked").
+    // Units left-joined with this user's progress row, if one exists yet.
+    // A unit the user hasn't reached has no user_unit_progress row at all
+    // — that reads as in_progress (units are never locked), not 'locked'.
     final response = await _client
         .from('units')
         .select('id, title, sequence_order, user_unit_progress!left(status)')
@@ -37,7 +37,7 @@ class CurriculumRepository {
       final progressRows = row['user_unit_progress'] as List?;
       final status = progressRows != null && progressRows.isNotEmpty
           ? progressRows.first['status'] as String
-          : 'locked';
+          : 'in_progress';
       return CurriculumUnit.fromJson({...row, 'status': status});
     }).toList();
   }
