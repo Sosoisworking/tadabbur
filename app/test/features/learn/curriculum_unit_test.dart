@@ -31,14 +31,14 @@ void main() {
       expect(unit.status, UnitStatus.inProgress);
     });
 
-    test('defaults status to locked when absent (no progress row yet)', () {
+    test('defaults status to in_progress when absent (no progress row yet, but units are never locked)', () {
       final unit = CurriculumUnit.fromJson({
         'id': 2,
         'title': 'An-Nas',
         'sequence_order': 2,
       });
 
-      expect(unit.status, UnitStatus.locked);
+      expect(unit.status, UnitStatus.inProgress);
     });
   });
 }

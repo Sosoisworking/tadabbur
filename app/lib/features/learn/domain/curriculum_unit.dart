@@ -20,7 +20,10 @@ class CurriculumUnit {
       id: json['id'] as int,
       title: json['title'] as String,
       sequenceOrder: json['sequence_order'] as int,
-      status: UnitStatus.fromDb(json['status'] as String? ?? 'locked'),
+      // No user_unit_progress row (a unit the user hasn't touched yet)
+      // reads as in_progress, not locked — per product decision, units
+      // are never gated behind completing earlier ones.
+      status: UnitStatus.fromDb(json['status'] as String? ?? 'in_progress'),
     );
   }
 }

@@ -10,8 +10,10 @@ import '../unit_theme_icon.dart';
 /// Reference screen for the presentation layer pattern: watch a provider,
 /// handle loading/error/data explicitly (AsyncValue.when), no business
 /// logic here — that all lives in CurriculumRepository. Tapping a unit
-/// pushes UnitDetailScreen (see core/router/app_router.dart) unless it's
-/// locked.
+/// pushes UnitDetailScreen (see core/router/app_router.dart). Units are
+/// never locked (see CurriculumUnit.fromJson) — the UnitStatus.locked
+/// branches below are a dead-but-harmless fallback for a status value
+/// the schema still technically allows, not a reachable product state.
 class LearnScreen extends ConsumerWidget {
   const LearnScreen({super.key});
 
