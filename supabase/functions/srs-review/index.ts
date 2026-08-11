@@ -77,8 +77,9 @@ async function handleExpose(
   const vocabItemId = body.vocab_item_id as number | undefined;
   const grammarPointId = body.grammar_point_id as number | undefined;
   const letterId = body.letter_id as number | undefined;
+  const ayahId = body.ayah_id as number | undefined;
 
-  const provided = [vocabItemId, grammarPointId, letterId].filter(
+  const provided = [vocabItemId, grammarPointId, letterId, ayahId].filter(
     (v) => v != null,
   );
   if (provided.length !== 1) {
@@ -89,8 +90,10 @@ async function handleExpose(
     ? "vocab_item_id"
     : grammarPointId != null
     ? "grammar_point_id"
-    : "letter_id";
-  const value = vocabItemId ?? grammarPointId ?? letterId;
+    : letterId != null
+    ? "letter_id"
+    : "ayah_id";
+  const value = vocabItemId ?? grammarPointId ?? letterId ?? ayahId;
 
   const { data: existing } = await db
     .from("srs_items")

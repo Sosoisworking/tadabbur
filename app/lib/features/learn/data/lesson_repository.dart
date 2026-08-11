@@ -239,7 +239,7 @@ class LessonRepository {
 
       final ayatRows = await _client
           .from('ayat')
-          .select('ayah_number, text_diacritized, transliteration, translation_en')
+          .select('id, ayah_number, text_diacritized, transliteration, translation_en')
           .eq('surah_number', surahNumber)
           .gte('ayah_number', startAyah)
           .lte('ayah_number', endAyah)
@@ -250,6 +250,7 @@ class LessonRepository {
         sequenceOrder: 0, // caller doesn't need this — only looked up by exercise id
         ayat: ayatRows
             .map((row) => ReadingPassageAyah(
+                  ayahId: row['id'] as int,
                   ayahNumber: row['ayah_number'] as int,
                   textDiacritized: row['text_diacritized'] as String,
                   transliteration: row['transliteration'] as String,

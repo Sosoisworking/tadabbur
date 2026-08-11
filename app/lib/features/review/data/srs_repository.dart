@@ -25,6 +25,13 @@ class SrsRepository {
     return _invokeExpose({'letter_id': letterId});
   }
 
+  /// Called when a user advances past a single-ayah reading_passage card
+  /// (the line-by-line cards from migration 0039) for the first time —
+  /// same idempotent-expose contract as [exposeVocabItem]/[exposeLetter].
+  Future<void> exposeAyah(int ayahId) {
+    return _invokeExpose({'ayah_id': ayahId});
+  }
+
   Future<int> _invokeExpose(Map<String, dynamic> idField) async {
     final response = await _client.functions.invoke(
       'srs-review',
@@ -63,7 +70,8 @@ class SrsRepository {
         .select(
           'id, '
           'vocab_items(arabic_text, transliteration, meaning_en), '
-          'letters(isolated_form, name_transliteration, pronunciation_guide)',
+          'letters(isolated_form, name_transliteration, pronunciation_guide), '
+          'ayat(text_diacritized, transliteration, translation_en)',
         )
         .eq('user_id', userId)
         .lte('due_at', DateTime.now().toUtc().toIso8601String())
@@ -84,13 +92,24 @@ class SrsRepository {
       );
     }
 
-    final letter = _unwrapEmbed(row['letters'])!;
+    final letter = _unwrapEmbed(row['letters']);
+    if (letter != null) {
+      return DueSrsItem(
+        srsItemId: row['id'] as int,
+        kind: SrsItemKind.letter,
+        arabicText: letter['isolated_form'] as String,
+        label: letter['name_transliteration'] as String,
+        detail: letter['pronunciation_guide'] as String,
+      );
+    }
+
+    final ayah = _unwrapEmbed(row['ayat'])!;
     return DueSrsItem(
       srsItemId: row['id'] as int,
-      kind: SrsItemKind.letter,
-      arabicText: letter['isolated_form'] as String,
-      label: letter['name_transliteration'] as String,
-      detail: letter['pronunciation_guide'] as String,
+      kind: SrsItemKind.ayah,
+      arabicText: ayah['text_diacritized'] as String,
+      label: ayah['transliteration'] as String,
+      detail: ayah['translation_en'] as String,
     );
   }
 

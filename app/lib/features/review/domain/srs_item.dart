@@ -1,9 +1,9 @@
-/// What kind of content this SRS item schedules — mirrors the three
+/// What kind of content this SRS item schedules — mirrors the
 /// mutually-exclusive FK columns on srs_items (docs/database-schema.md).
 /// grammar_points isn't wired up client-side yet since no grammar
 /// content exists to review (docs/feature-specs.md's grammar
 /// explanations land in a later milestone).
-enum SrsItemKind { vocab, letter }
+enum SrsItemKind { vocab, letter, ayah }
 
 /// One due item in a user's review queue, already resolved to its
 /// display content (the underlying vocab_item or letter row).

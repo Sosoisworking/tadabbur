@@ -44,12 +44,17 @@ class VocabCardExercise extends LessonExercise {
 
 class ReadingPassageAyah {
   const ReadingPassageAyah({
+    required this.ayahId,
     required this.ayahNumber,
     required this.textDiacritized,
     required this.transliteration,
     required this.translationEn,
   });
 
+  /// ayat.id — needed to enter this ayah into the user's SRS review
+  /// queue (migration 0040) once they've seen it as its own card, not
+  /// just for display.
+  final int ayahId;
   final int ayahNumber;
   final String textDiacritized;
   final String transliteration;

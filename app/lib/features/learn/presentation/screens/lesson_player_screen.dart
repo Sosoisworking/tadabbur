@@ -189,7 +189,17 @@ class _LessonPlayerScreenState extends ConsumerState<LessonPlayerScreen> {
       case ReadingPassageExercise():
         return _ReadingPassageView(
           exercise: exercise,
-          onNext: () => _advance(all, graded: false),
+          onNext: () {
+            // Only single-ayah cards (the line-by-line cards from
+            // migration 0039) are their own SRS item — a multi-ayah
+            // recap/full-surah passage isn't a single reviewable unit.
+            if (exercise.ayat.length == 1) {
+              _exposeToSrs(
+                () => ref.read(srsRepositoryProvider).exposeAyah(exercise.ayat.single.ayahId),
+              );
+            }
+            _advance(all, graded: false);
+          },
         );
       case RecallQuizExercise():
         return _RecallQuizView(
