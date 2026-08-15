@@ -122,7 +122,7 @@ class _UnitTile extends StatelessWidget {
                     Text(unit.title, style: Theme.of(context).textTheme.titleLarge),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      locked ? 'Complete earlier units to unlock' : unit.status.name,
+                      locked ? 'Complete earlier units to unlock' : _statusLabel(unit.status),
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
@@ -147,6 +147,18 @@ class _UnitTile extends StatelessWidget {
       // icon needed, but an empty SizedBox keeps the Row's spacing
       // identical across all four states instead of the layout jumping.
       UnitStatus.inProgress => const SizedBox(width: 24),
+    };
+  }
+
+  // UnitStatus.inProgress.name renders as the literal "inProgress" —
+  // caught by actually looking at a running build, not by analyze/test.
+  // Real interface copy, not the enum identifier.
+  String _statusLabel(UnitStatus status) {
+    return switch (status) {
+      UnitStatus.locked => 'Locked',
+      UnitStatus.inProgress => 'In progress',
+      UnitStatus.completed => 'Completed',
+      UnitStatus.mastered => 'Mastered',
     };
   }
 }
