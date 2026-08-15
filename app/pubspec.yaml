@@ -54,6 +54,20 @@ dependencies:
   # for core UI text once launched.
   google_fonts: ^6.2.1
 
+  # On-device prayer time calculation (Prayer Times tab) — computes from
+  # coordinates + date locally, no network call, matching the app's
+  # offline-first direction rather than depending on a prayer-times API.
+  adhan_dart: ^2.0.1
+
+  # Device GPS position for prayer time calculation, with a manual
+  # city-picker fallback (see features/prayer_times) when denied/unavailable.
+  geolocator: ^14.0.3
+
+  # Persists the user's chosen prayer-time location (GPS vs manual city)
+  # across launches. Already pulled in transitively by supabase_flutter;
+  # declared directly here since prayer_times imports it itself.
+  shared_preferences: ^2.5.5
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

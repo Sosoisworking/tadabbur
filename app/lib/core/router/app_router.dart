@@ -6,6 +6,7 @@ import '../../features/learn/presentation/screens/learn_screen.dart';
 import '../../features/learn/presentation/screens/lesson_player_screen.dart';
 import '../../features/learn/presentation/screens/unit_detail_screen.dart';
 import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
+import '../../features/prayer_times/presentation/screens/prayer_times_screen.dart';
 import '../../features/review/presentation/screens/review_screen.dart';
 import '../../features/review/presentation/screens/review_session_screen.dart';
 import '../../shared/widgets/app_shell.dart';
@@ -76,6 +77,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ]),
           StatefulShellBranch(routes: [
             GoRoute(path: '/review', builder: (context, state) => const ReviewScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(path: '/prayer-times', builder: (context, state) => const PrayerTimesScreen()),
           ]),
         ],
       ),
