@@ -6,10 +6,8 @@ import '../../features/learn/presentation/screens/learn_screen.dart';
 import '../../features/learn/presentation/screens/lesson_player_screen.dart';
 import '../../features/learn/presentation/screens/unit_detail_screen.dart';
 import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
-import '../../features/progress/presentation/screens/progress_screen.dart';
 import '../../features/review/presentation/screens/review_screen.dart';
 import '../../features/review/presentation/screens/review_session_screen.dart';
-import '../../features/tutor/presentation/screens/tutor_screen.dart';
 import '../../shared/widgets/app_shell.dart';
 import '../services/supabase_service.dart';
 
@@ -78,12 +76,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ]),
           StatefulShellBranch(routes: [
             GoRoute(path: '/review', builder: (context, state) => const ReviewScreen()),
-          ]),
-          StatefulShellBranch(routes: [
-            GoRoute(path: '/tutor', builder: (context, state) => const TutorScreen()),
-          ]),
-          StatefulShellBranch(routes: [
-            GoRoute(path: '/progress', builder: (context, state) => const ProgressScreen()),
           ]),
         ],
       ),

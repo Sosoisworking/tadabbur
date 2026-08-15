@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-/// The 4-tab bottom nav from docs/information-architecture.md — Learn,
-/// Review, Tutor, Progress. Deliberately shallow (4 items, no 5th
-/// Settings tab) per that doc's accessibility reasoning: this audience
-/// includes low-tech-literacy users, so navigation depth is a real
-/// accessibility concern, not just a style choice. Settings/profile is
-/// reached via an avatar icon on each screen's AppBar instead (not yet
-/// wired in this scaffold).
+/// Bottom nav: Learn and Review. Tutor and Progress (the other two tabs
+/// docs/information-architecture.md originally specified) were pulled
+/// per user request — both were still bare "coming in M4/M6" stub
+/// screens, not real features, so removing them from the nav shows two
+/// working tabs instead of four where half lead nowhere. Re-add them as
+/// their own StatefulShellBranch (see app_router.dart) once there's a
+/// real screen behind each. Settings/profile is reached via an avatar
+/// icon on each screen's AppBar instead (not yet wired in this
+/// scaffold).
 class AppShell extends StatelessWidget {
   const AppShell({super.key, required this.navigationShell});
 
@@ -28,9 +30,11 @@ class AppShell extends StatelessWidget {
         ),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.menu_book_outlined), selectedIcon: Icon(Icons.menu_book), label: 'Learn'),
-          NavigationDestination(icon: Icon(Icons.refresh_outlined), selectedIcon: Icon(Icons.refresh), label: 'Review'),
-          NavigationDestination(icon: Icon(Icons.chat_bubble_outline), selectedIcon: Icon(Icons.chat_bubble), label: 'Tutor'),
-          NavigationDestination(icon: Icon(Icons.insights_outlined), selectedIcon: Icon(Icons.insights), label: 'Progress'),
+          // Was Icons.refresh — read as "reload," not "spaced-repetition
+          // recall." Psychology (a brain) is what this tab actually is:
+          // flip-card review that grades how well you remembered
+          // something, not a data refresh action.
+          NavigationDestination(icon: Icon(Icons.psychology_outlined), selectedIcon: Icon(Icons.psychology), label: 'Review'),
         ],
       ),
     );

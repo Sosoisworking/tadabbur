@@ -22,7 +22,7 @@ class ReviewScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Row(
           children: [
-            Icon(Icons.refresh_rounded, color: Theme.of(context).colorScheme.primary),
+            Icon(Icons.psychology_rounded, color: Theme.of(context).colorScheme.primary),
             const SizedBox(width: 10),
             const Text('Review'),
           ],
