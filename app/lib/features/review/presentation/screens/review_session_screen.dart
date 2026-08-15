@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../shared/widgets/completion_card.dart';
 import '../../data/srs_repository.dart';
 import '../../domain/srs_item.dart';
 
@@ -74,7 +76,12 @@ class _ReviewSessionScreenState extends ConsumerState<ReviewSessionScreen> {
 
   Widget _buildBody() {
     if (_items == null) return const Center(child: CircularProgressIndicator());
-    if (_completed) return const _ReviewCompleteView();
+    if (_completed) {
+      return CompletionCard(
+        headline: 'Review complete',
+        onDone: () => Navigator.of(context).pop(),
+      );
+    }
     if (_items!.isEmpty) return const Center(child: Text('Nothing due right now.'));
 
     final item = _items![_index];
@@ -84,17 +91,21 @@ class _ReviewSessionScreenState extends ConsumerState<ReviewSessionScreen> {
         LinearProgressIndicator(value: (_index + 1) / _items!.length),
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(AppSpacing.xl),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(item.arabicText, style: AppTypography.arabic(fontSize: 72), textAlign: TextAlign.center),
-                const SizedBox(height: 24),
+                Text(
+                  item.arabicText,
+                  style: AppTypography.arabic(fontSize: AppTypography.arabicLarge),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppSpacing.xl),
                 if (_revealed) ...[
                   Text(item.label, style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpacing.sm),
                   Text(item.detail, textAlign: TextAlign.center),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: AppSpacing.xxl),
                   if (_lastResultLabel != null)
                     Text(_lastResultLabel!, style: Theme.of(context).textTheme.bodySmall)
                   else
@@ -132,8 +143,8 @@ class _RatingButtons extends StatelessWidget {
     ];
 
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+      spacing: AppSpacing.sm,
+      runSpacing: AppSpacing.sm,
       alignment: WrapAlignment.center,
       children: [
         for (final rating in ratings)
@@ -142,29 +153,6 @@ class _RatingButtons extends StatelessWidget {
             child: Text(rating.label),
           ),
       ],
-    );
-  }
-}
-
-class _ReviewCompleteView extends StatelessWidget {
-  const _ReviewCompleteView();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.check_circle_rounded, size: 64, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(height: 16),
-            Text('Review complete', style: AppTypography.accent(fontSize: 28, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 32),
-            FilledButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Done')),
-          ],
-        ),
-      ),
     );
   }
 }

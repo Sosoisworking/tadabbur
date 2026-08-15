@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../core/theme/app_typography.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../shared/widgets/app_card.dart';
+import '../../../../shared/widgets/status_badge.dart';
 import '../../data/lesson_repository.dart';
 import '../../domain/lesson.dart';
 import '../unit_theme_icon.dart';
@@ -34,11 +36,11 @@ class UnitDetailScreen extends ConsumerWidget {
           onRefresh: () => ref.refresh(lessonsForUnitProvider(unitId).future),
           child: GridView.builder(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppSpacing.lg),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
+              mainAxisSpacing: AppSpacing.md,
+              crossAxisSpacing: AppSpacing.md,
               childAspectRatio: 1.0,
             ),
             itemCount: lessons.length,
@@ -68,53 +70,38 @@ class _LessonTile extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final accentColor = _isQuiz ? scheme.secondary : scheme.primary;
 
-    return Material(
-      color: scheme.surface,
-      borderRadius: BorderRadius.circular(16),
-      elevation: 1,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () => context.push(
-          '/lesson/${lesson.id}',
-          extra: (unitId: unitId, lessonTitle: lesson.title),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return AppCard(
+      onTap: () => context.push(
+        '/lesson/${lesson.id}',
+        extra: (unitId: unitId, lessonTitle: lesson.title),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          StatusBadge(
+            color: accentColor,
+            child: Icon(
+              _isQuiz ? Icons.quiz_rounded : Icons.menu_book_rounded,
+              color: Colors.white,
+              size: 22,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            lesson.title,
+            style: Theme.of(context).textTheme.titleMedium,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Row(
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: accentColor,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                alignment: Alignment.center,
-                child: Icon(
-                  _isQuiz ? Icons.quiz_rounded : Icons.menu_book_rounded,
-                  color: Colors.white,
-                  size: 22,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                lesson.title,
-                style: AppTypography.accent(fontSize: 16, fontWeight: FontWeight.w600),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Icon(Icons.schedule_rounded, size: 14, color: Theme.of(context).textTheme.bodySmall?.color),
-                  const SizedBox(width: 4),
-                  Text('${lesson.estimatedMinutes} min', style: Theme.of(context).textTheme.bodySmall),
-                ],
-              ),
+              Icon(Icons.schedule_rounded, size: 14, color: Theme.of(context).textTheme.bodySmall?.color),
+              const SizedBox(width: AppSpacing.xs),
+              Text('${lesson.estimatedMinutes} min', style: Theme.of(context).textTheme.bodySmall),
             ],
           ),
-        ),
+        ],
       ),
     );
   }

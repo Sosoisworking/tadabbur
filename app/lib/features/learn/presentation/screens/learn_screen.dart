@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../core/theme/app_typography.dart';
+import '../../../../core/theme/app_semantic_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
+import '../../../../shared/widgets/app_card.dart';
+import '../../../../shared/widgets/status_badge.dart';
 import '../../data/curriculum_repository.dart';
 import '../../domain/curriculum_unit.dart';
 import '../unit_theme_icon.dart';
@@ -35,7 +38,7 @@ class LearnScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(AppSpacing.xl),
             child: Text(
               'Could not load your curriculum path.\n$error',
               textAlign: TextAlign.center,
@@ -56,7 +59,7 @@ class LearnScreen extends ConsumerWidget {
                   physics: const AlwaysScrollableScrollPhysics(),
                   children: [
                     Padding(
-                      padding: const EdgeInsets.all(24),
+                      padding: const EdgeInsets.all(AppSpacing.xl),
                       child: Text(
                         'No units yet — content is seeded per '
                         'implementation-plan.md milestone M1. Pull down to refresh.',
@@ -68,7 +71,7 @@ class LearnScreen extends ConsumerWidget {
                 )
               : ListView.builder(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSpacing.lg),
                   itemCount: units.length,
                   itemBuilder: (context, index) => _UnitTile(unit: units[index]),
                 ),
@@ -87,42 +90,63 @@ class _UnitTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final locked = unit.status == UnitStatus.locked;
     final scheme = Theme.of(context).colorScheme;
+    final semantic = Theme.of(context).extension<AppSemanticColors>()!;
+    // Completed and in-progress used to share scheme.primary — the same
+    // color for "still working on it" and "done" fails brand principle 3
+    // ("seen vs understood must look different, everywhere"). Completed
+    // now gets the dedicated success token instead of reusing primary.
     final badgeColor = switch (unit.status) {
-      UnitStatus.locked => scheme.onSurface.withValues(alpha: 0.35),
-      UnitStatus.inProgress || UnitStatus.completed => scheme.primary,
+      UnitStatus.locked => semantic.locked,
+      UnitStatus.inProgress => scheme.primary,
+      UnitStatus.completed => semantic.success,
       UnitStatus.mastered => scheme.secondary,
     };
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        enabled: !locked,
-        leading: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(color: badgeColor, shape: BoxShape.circle),
-          alignment: Alignment.center,
-          child: unitThematicBadge(unit.title, size: 24, color: Colors.white),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      child: Opacity(
+        opacity: locked ? 0.6 : 1,
+        child: AppCard(
+          onTap: locked ? null : () => context.push('/learn/unit/${unit.id}', extra: unit.title),
+          child: Row(
+            children: [
+              StatusBadge(
+                color: badgeColor,
+                child: unitThematicBadge(unit.title, size: 24, color: Colors.white),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(unit.title, style: Theme.of(context).textTheme.titleLarge),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      locked ? 'Complete earlier units to unlock' : unit.status.name,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              _trailingIcon(context, unit.status, semantic),
+            ],
+          ),
         ),
-        title: Text(unit.title, style: AppTypography.accent(fontSize: 18)),
-        subtitle: Text(locked ? 'Complete earlier units to unlock' : unit.status.name),
-        trailing: _statusBadge(context, unit.status),
-        onTap: locked ? null : () => context.push('/learn/unit/${unit.id}', extra: unit.title),
       ),
     );
   }
 
-  Widget? _statusBadge(BuildContext context, UnitStatus status) {
+  Widget _trailingIcon(BuildContext context, UnitStatus status, AppSemanticColors semantic) {
     final scheme = Theme.of(context).colorScheme;
-    switch (status) {
-      case UnitStatus.mastered:
-        return Icon(Icons.star_rounded, color: scheme.secondary);
-      case UnitStatus.completed:
-        return Icon(Icons.check_circle_rounded, color: scheme.primary);
-      case UnitStatus.locked:
-        return const Icon(Icons.lock_outline_rounded, color: Colors.grey);
-      case UnitStatus.inProgress:
-        return null; // the badge color + subtitle already say "active"
-    }
+    return switch (status) {
+      UnitStatus.mastered => Icon(Icons.star_rounded, color: scheme.secondary),
+      UnitStatus.completed => Icon(Icons.check_circle_rounded, color: semantic.success),
+      UnitStatus.locked => Icon(Icons.lock_outline_rounded, color: semantic.locked),
+      // The badge color + subtitle already say "active" — no trailing
+      // icon needed, but an empty SizedBox keeps the Row's spacing
+      // identical across all four states instead of the layout jumping.
+      UnitStatus.inProgress => const SizedBox(width: 24),
+    };
   }
 }

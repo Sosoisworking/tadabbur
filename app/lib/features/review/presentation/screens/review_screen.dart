@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/theme/app_semantic_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../data/srs_repository.dart';
 
 /// Due-queue entry point (docs/information-architecture.md: "Due-today
@@ -30,23 +32,25 @@ class ReviewScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(AppSpacing.xl),
             child: Text('Could not load your review queue.\n$error', textAlign: TextAlign.center),
           ),
         ),
         data: (items) {
+          final success = Theme.of(context).extension<AppSemanticColors>()!.success;
           final Widget content;
           if (items.isEmpty) {
             content = Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.check_circle_outline_rounded, size: 64, color: Theme.of(context).colorScheme.primary),
-                const SizedBox(height: 16),
-                const Text('All caught up', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 8),
-                const Text(
+                Icon(Icons.check_circle_outline_rounded, size: 64, color: success),
+                const SizedBox(height: AppSpacing.lg),
+                Text('All caught up', style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
                   'Nothing is due for review right now — come back after a lesson or two.',
                   textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],
             );
@@ -57,11 +61,11 @@ class ReviewScreen extends ConsumerWidget {
             content = Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text('${items.length}', style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold)),
-                Text(items.length == 1 ? 'item due' : 'items due'),
-                const SizedBox(height: 4),
+                Text('${items.length}', style: Theme.of(context).textTheme.displayMedium),
+                Text(items.length == 1 ? 'item due' : 'items due', style: Theme.of(context).textTheme.bodyLarge),
+                const SizedBox(height: AppSpacing.xs),
                 Text('~$estimatedMinutes min', style: Theme.of(context).textTheme.bodySmall),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.xl),
                 FilledButton(
                   onPressed: () => context.push('/review-session'),
                   child: const Text('Start Review'),
@@ -83,7 +87,7 @@ class ReviewScreen extends ConsumerWidget {
                 child: ConstrainedBox(
                   constraints: BoxConstraints(minHeight: constraints.maxHeight),
                   child: Center(
-                    child: Padding(padding: const EdgeInsets.all(24), child: content),
+                    child: Padding(padding: const EdgeInsets.all(AppSpacing.xl), child: content),
                   ),
                 ),
               ),

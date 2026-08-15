@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'app_colors.dart';
+import 'app_semantic_colors.dart';
+import 'app_spacing.dart';
 import 'app_typography.dart';
 
 /// Builds the light and dark ThemeData from docs/design-system.md tokens.
@@ -52,6 +54,10 @@ class AppTheme {
       ),
       navigationBarTheme: _navigationBarTheme(primary, accent, surface, textSecondary),
       chipTheme: _chipTheme(colorScheme),
+      cardTheme: _cardTheme(surface),
+      extensions: const [
+        AppSemanticColors(success: AppColors.lightSuccess, locked: AppColors.lightLocked),
+      ],
     );
   }
 
@@ -87,6 +93,26 @@ class AppTheme {
       ),
       navigationBarTheme: _navigationBarTheme(primary, accent, surface, textSecondary),
       chipTheme: _chipTheme(colorScheme),
+      cardTheme: _cardTheme(surface),
+      extensions: const [
+        AppSemanticColors(success: AppColors.darkSuccess, locked: AppColors.darkLocked),
+      ],
+    );
+  }
+
+  /// One card idiom for the whole app — flat-ish (elevation 1, no heavy
+  /// drop shadow) with a consistent radius, so a screen never has to
+  /// choose between `Card` and a hand-rolled `Material`+`InkWell` to get
+  /// the "right" look; `Card` always gives the right look.
+  static CardThemeData _cardTheme(Color surface) {
+    return CardThemeData(
+      elevation: 1,
+      color: surface,
+      surfaceTintColor: Colors.transparent,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+      ),
     );
   }
 

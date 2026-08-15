@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../auth/data/auth_repository.dart';
 
@@ -104,20 +105,20 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     return Scaffold(
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(AppSpacing.xl),
           child: Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text('Tadabbur', style: AppTypography.accent(fontSize: 32, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.sm),
                 Text(
                   'Full onboarding (placement test, first lesson) lands in M2 — '
                   'sign in below to exercise the auth flow.',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: AppSpacing.xxl),
                 if (_checkEmailToConfirm)
                   const Text(
                     'Check your email to confirm your account, then log in below.',
@@ -132,45 +133,45 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     selected: {_mode},
                     onSelectionChanged: (selection) => setState(() => _mode = selection.first),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.lg),
                   TextField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
                     decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder()),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.md),
                   TextField(
                     controller: _passwordController,
                     obscureText: true,
                     decoration: const InputDecoration(labelText: 'Password', border: OutlineInputBorder()),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.lg),
                   FilledButton(
                     onPressed: _submitting ? null : _submit,
                     child: _submitting
                         ? const SizedBox(
-                            height: 16,
-                            width: 16,
+                            height: AppSpacing.lg,
+                            width: AppSpacing.lg,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : Text(_mode == _Mode.logIn ? 'Log In' : 'Sign Up'),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: AppSpacing.xl),
                   const Text('— or —'),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpacing.sm),
                   TextButton(
                     onPressed: _continuingAnonymously ? null : _continueAnonymously,
                     child: _continuingAnonymously
                         ? const SizedBox(
-                            height: 16,
-                            width: 16,
+                            height: AppSpacing.lg,
+                            width: AppSpacing.lg,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Text('Continue without an account'),
                   ),
                 ],
                 if (_error != null) ...[
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.lg),
                   Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
                 ],
               ],
