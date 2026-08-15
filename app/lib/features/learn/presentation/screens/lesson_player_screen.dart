@@ -276,6 +276,67 @@ class _LessonPlayerScreenState extends ConsumerState<LessonPlayerScreen> {
   }
 }
 
+/// Standard skeleton for an exercise view: content that centers
+/// vertically when it's shorter than the available height and scrolls
+/// normally when it's taller, with the primary action pinned at the
+/// bottom outside the scroll area so it's always reachable without
+/// scrolling — even a long reading passage shouldn't make "Next"
+/// something you have to hunt for.
+///
+/// Replaces the `SingleChildScrollView(child: Column(mainAxisAlignment:
+/// center))` pattern several exercise views used to build their own
+/// version of: a scroll view gives its child unbounded height, so
+/// there's nothing for mainAxisAlignment to distribute against, and
+/// short content silently sat at the top with the button stranded below
+/// a large empty gap. Bounding the content to at least the available
+/// height first gives centering something to work with. Also fixes the
+/// inverse problem some other views had — their "Next" button was
+/// stretched full-width by a `CrossAxisAlignment.stretch` Column that
+/// existed to make body text wrap at full width, an unrelated concern
+/// the button just inherited as a side effect. The button lives outside
+/// that Column entirely now, so it's always a compact, centered pill
+/// regardless of what alignment the content above it needs.
+class _ExerciseScaffold extends StatelessWidget {
+  const _ExerciseScaffold({
+    required this.onNext,
+    required this.children,
+    this.crossAxisAlignment = CrossAxisAlignment.center,
+  });
+
+  static const _padding = EdgeInsets.all(AppSpacing.xl);
+
+  final VoidCallback onNext;
+  final List<Widget> children;
+  final CrossAxisAlignment crossAxisAlignment;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) => SingleChildScrollView(
+              padding: _padding,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight - _padding.vertical),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: crossAxisAlignment,
+                  children: children,
+                ),
+              ),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: FilledButton(onPressed: onNext, child: const Text('Next')),
+        ),
+      ],
+    );
+  }
+}
+
 class _DiacriticIntroView extends StatelessWidget {
   const _DiacriticIntroView({required this.exercise, required this.onNext});
 
@@ -344,59 +405,54 @@ class _LetterCardView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(exercise.isolatedForm, style: AppTypography.arabic(fontSize: AppTypography.arabicXL), textAlign: TextAlign.center),
-          const SizedBox(height: AppSpacing.lg),
-          Text(exercise.nameArabic, style: AppTypography.arabic(fontSize: AppTypography.arabicSmall), textAlign: TextAlign.center),
-          const SizedBox(height: AppSpacing.sm),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+    return _ExerciseScaffold(
+      onNext: onNext,
+      children: [
+        Text(exercise.isolatedForm, style: AppTypography.arabic(fontSize: AppTypography.arabicXL), textAlign: TextAlign.center),
+        const SizedBox(height: AppSpacing.lg),
+        Text(exercise.nameArabic, style: AppTypography.arabic(fontSize: AppTypography.arabicSmall), textAlign: TextAlign.center),
+        const SizedBox(height: AppSpacing.sm),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(exercise.nameTransliteration, style: Theme.of(context).textTheme.titleMedium),
+            if (exercise.isEmphatic) ...[
+              const SizedBox(width: AppSpacing.sm),
+              Chip(
+                label: const Text('heavy'),
+                visualDensity: VisualDensity.compact,
+                backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Text(exercise.pronunciationGuide, style: Theme.of(context).textTheme.bodyLarge, textAlign: TextAlign.center),
+        const SizedBox(height: AppSpacing.xl),
+        _PositionalFormsRow(exercise: exercise),
+        const SizedBox(height: AppSpacing.lg),
+        // Collapsed by default — makhraj detail is advanced phonetic
+        // information a beginner (this scaffold's Aisha persona)
+        // doesn't need to see before recognizing the letter itself;
+        // ExpansionTile manages its own open/closed state, so this
+        // stays a StatelessWidget rather than needing to become
+        // Stateful just for one optional section.
+        Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            title: const Text('Where is this pronounced?'),
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: const EdgeInsets.only(bottom: AppSpacing.sm),
             children: [
-              Text(exercise.nameTransliteration, style: Theme.of(context).textTheme.titleMedium),
-              if (exercise.isEmphatic) ...[
-                const SizedBox(width: AppSpacing.sm),
-                Chip(
-                  label: const Text('heavy'),
-                  visualDensity: VisualDensity.compact,
-                  backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-                ),
-              ],
+              Text(
+                exercise.articulationPoint,
+                style: Theme.of(context).textTheme.bodyMedium,
+                textAlign: TextAlign.center,
+              ),
             ],
           ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(exercise.pronunciationGuide, style: Theme.of(context).textTheme.bodyLarge, textAlign: TextAlign.center),
-          const SizedBox(height: AppSpacing.xl),
-          _PositionalFormsRow(exercise: exercise),
-          const SizedBox(height: AppSpacing.lg),
-          // Collapsed by default — makhraj detail is advanced phonetic
-          // information a beginner (this scaffold's Aisha persona)
-          // doesn't need to see before recognizing the letter itself;
-          // ExpansionTile manages its own open/closed state, so this
-          // stays a StatelessWidget rather than needing to become
-          // Stateful just for one optional section.
-          Theme(
-            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-            child: ExpansionTile(
-              title: const Text('Where is this pronounced?'),
-              tilePadding: EdgeInsets.zero,
-              childrenPadding: const EdgeInsets.only(bottom: AppSpacing.sm),
-              children: [
-                Text(
-                  exercise.articulationPoint,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          FilledButton(onPressed: onNext, child: const Text('Next')),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -443,26 +499,21 @@ class _VocabCardView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(exercise.arabicText, style: AppTypography.arabic(fontSize: AppTypography.arabicMedium), textAlign: TextAlign.center),
+    return _ExerciseScaffold(
+      onNext: onNext,
+      children: [
+        Text(exercise.arabicText, style: AppTypography.arabic(fontSize: AppTypography.arabicMedium), textAlign: TextAlign.center),
+        const SizedBox(height: AppSpacing.lg),
+        Text(exercise.transliteration, style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: AppSpacing.sm),
+        Text(exercise.meaningEn, style: Theme.of(context).textTheme.bodyLarge, textAlign: TextAlign.center),
+        if (exercise.rootLetters != null) ...[
           const SizedBox(height: AppSpacing.lg),
-          Text(exercise.transliteration, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: AppSpacing.sm),
-          Text(exercise.meaningEn, style: Theme.of(context).textTheme.bodyLarge, textAlign: TextAlign.center),
-          if (exercise.rootLetters != null) ...[
-            const SizedBox(height: AppSpacing.lg),
-            Text('Root: ${exercise.rootLetters}', style: Theme.of(context).textTheme.bodySmall),
-          ],
-          if (exercise.waznPattern != null)
-            Text('Pattern: ${exercise.waznPattern}', style: Theme.of(context).textTheme.bodySmall),
-          const SizedBox(height: AppSpacing.xxl),
-          FilledButton(onPressed: onNext, child: const Text('Next')),
+          Text('Root: ${exercise.rootLetters}', style: Theme.of(context).textTheme.bodySmall),
         ],
-      ),
+        if (exercise.waznPattern != null)
+          Text('Pattern: ${exercise.waznPattern}', style: Theme.of(context).textTheme.bodySmall),
+      ],
     );
   }
 }
@@ -475,40 +526,46 @@ class _ReadingPassageView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return _ExerciseScaffold(
+      onNext: onNext,
+      // Each ayah's own Arabic line needs to right-align against the
+      // full screen width (RTL), not just against however wide its
+      // sibling English text happens to be — stretch, same reasoning
+      // as _GrammarExplanationView/_PrayerStepView below.
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          child: ListView.separated(
-            padding: const EdgeInsets.all(AppSpacing.xl),
-            itemCount: exercise.ayat.length,
-            separatorBuilder: (_, _) => const Divider(height: 32),
-            itemBuilder: (context, index) {
-              final ayah = exercise.ayat[index];
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    '${ayah.textDiacritized} ﴿${ayah.ayahNumber}﴾',
-                    style: AppTypography.arabic(fontSize: AppTypography.arabicSmall),
-                    textAlign: TextAlign.right,
-                    textDirection: TextDirection.rtl,
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    ayah.transliteration,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic),
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(ayah.translationEn, style: Theme.of(context).textTheme.bodyMedium),
-                ],
-              );
-            },
-          ),
+        for (var i = 0; i < exercise.ayat.length; i++) ...[
+          if (i > 0) const Divider(height: 32),
+          _AyahBlock(ayah: exercise.ayat[i]),
+        ],
+      ],
+    );
+  }
+}
+
+class _AyahBlock extends StatelessWidget {
+  const _AyahBlock({required this.ayah});
+
+  final ReadingPassageAyah ayah;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          '${ayah.textDiacritized} ﴿${ayah.ayahNumber}﴾',
+          style: AppTypography.arabic(fontSize: AppTypography.arabicSmall),
+          textAlign: TextAlign.right,
+          textDirection: TextDirection.rtl,
         ),
-        Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: FilledButton(onPressed: onNext, child: const Text('Next')),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          ayah.transliteration,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic),
         ),
+        const SizedBox(height: AppSpacing.xs),
+        Text(ayah.translationEn, style: Theme.of(context).textTheme.bodyMedium),
       ],
     );
   }
@@ -618,54 +675,50 @@ class _GrammarExplanationView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            exercise.titleEn,
-            style: AppTypography.accent(fontSize: 26, fontWeight: FontWeight.w600),
-            textAlign: TextAlign.center,
+    return _ExerciseScaffold(
+      onNext: onNext,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          exercise.titleEn,
+          style: AppTypography.accent(fontSize: 26, fontWeight: FontWeight.w600),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        Text(exercise.explanationShort, style: Theme.of(context).textTheme.bodyLarge, textAlign: TextAlign.center),
+        const SizedBox(height: AppSpacing.sm),
+        Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            title: const Text('Learn more'),
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: const EdgeInsets.only(bottom: AppSpacing.sm),
+            children: [
+              Text(exercise.explanationFull, style: Theme.of(context).textTheme.bodyMedium),
+            ],
           ),
-          const SizedBox(height: AppSpacing.lg),
-          Text(exercise.explanationShort, style: Theme.of(context).textTheme.bodyLarge, textAlign: TextAlign.center),
+        ),
+        if (exercise.exampleAyahText != null) ...[
           const SizedBox(height: AppSpacing.sm),
-          Theme(
-            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-            child: ExpansionTile(
-              title: const Text('Learn more'),
-              tilePadding: EdgeInsets.zero,
-              childrenPadding: const EdgeInsets.only(bottom: AppSpacing.sm),
-              children: [
-                Text(exercise.explanationFull, style: Theme.of(context).textTheme.bodyMedium),
-              ],
-            ),
+          const Divider(),
+          const SizedBox(height: AppSpacing.sm),
+          Text('Example', style: Theme.of(context).textTheme.labelLarge),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            exercise.exampleAyahText!,
+            style: AppTypography.arabic(fontSize: AppTypography.arabicSmall),
+            textAlign: TextAlign.right,
+            textDirection: TextDirection.rtl,
           ),
-          if (exercise.exampleAyahText != null) ...[
-            const SizedBox(height: AppSpacing.sm),
-            const Divider(),
-            const SizedBox(height: AppSpacing.sm),
-            Text('Example', style: Theme.of(context).textTheme.labelLarge),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              exercise.exampleAyahText!,
-              style: AppTypography.arabic(fontSize: AppTypography.arabicSmall),
-              textAlign: TextAlign.right,
-              textDirection: TextDirection.rtl,
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              exercise.exampleAyahTransliteration!,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic),
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(exercise.exampleAyahTranslation!, style: Theme.of(context).textTheme.bodyMedium),
-          ],
-          const SizedBox(height: AppSpacing.xxl),
-          FilledButton(onPressed: onNext, child: const Text('Next')),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            exercise.exampleAyahTransliteration!,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(exercise.exampleAyahTranslation!, style: Theme.of(context).textTheme.bodyMedium),
         ],
-      ),
+      ],
     );
   }
 }
@@ -685,40 +738,35 @@ class _LetterChainView extends StatelessWidget {
   Widget build(BuildContext context) {
     final letters = exercise.chainText.split('');
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            exercise.chainText,
-            style: AppTypography.arabic(fontSize: AppTypography.arabicLarge),
-            textAlign: TextAlign.center,
-            textDirection: TextDirection.rtl,
-          ),
-          const SizedBox(height: AppSpacing.xl),
-          Text('Same letters, joined together:', style: Theme.of(context).textTheme.bodyMedium),
-          const SizedBox(height: AppSpacing.md),
-          Directionality(
-            textDirection: TextDirection.rtl,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                for (var i = 0; i < letters.length; i++) ...[
-                  if (i > 0)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                      child: Text('+', style: Theme.of(context).textTheme.titleLarge),
-                    ),
-                  Text(letters[i], style: AppTypography.arabic(fontSize: AppTypography.arabicCompact)),
-                ],
+    return _ExerciseScaffold(
+      onNext: onNext,
+      children: [
+        Text(
+          exercise.chainText,
+          style: AppTypography.arabic(fontSize: AppTypography.arabicLarge),
+          textAlign: TextAlign.center,
+          textDirection: TextDirection.rtl,
+        ),
+        const SizedBox(height: AppSpacing.xl),
+        Text('Same letters, joined together:', style: Theme.of(context).textTheme.bodyMedium),
+        const SizedBox(height: AppSpacing.md),
+        Directionality(
+          textDirection: TextDirection.rtl,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              for (var i = 0; i < letters.length; i++) ...[
+                if (i > 0)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                    child: Text('+', style: Theme.of(context).textTheme.titleLarge),
+                  ),
+                Text(letters[i], style: AppTypography.arabic(fontSize: AppTypography.arabicCompact)),
               ],
-            ),
+            ],
           ),
-          const SizedBox(height: AppSpacing.xxl),
-          FilledButton(onPressed: onNext, child: const Text('Next')),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -735,34 +783,30 @@ class _KnowledgeCardView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            exercise.titleEn,
-            style: AppTypography.accent(fontSize: 26, fontWeight: FontWeight.w600),
-            textAlign: TextAlign.center,
+    return _ExerciseScaffold(
+      onNext: onNext,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          exercise.titleEn,
+          style: AppTypography.accent(fontSize: 26, fontWeight: FontWeight.w600),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        Text(exercise.explanationShort, style: Theme.of(context).textTheme.bodyLarge, textAlign: TextAlign.center),
+        const SizedBox(height: AppSpacing.sm),
+        Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            title: const Text('Learn more'),
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: const EdgeInsets.only(bottom: AppSpacing.sm),
+            children: [
+              Text(exercise.explanationFull, style: Theme.of(context).textTheme.bodyMedium),
+            ],
           ),
-          const SizedBox(height: AppSpacing.lg),
-          Text(exercise.explanationShort, style: Theme.of(context).textTheme.bodyLarge, textAlign: TextAlign.center),
-          const SizedBox(height: AppSpacing.sm),
-          Theme(
-            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-            child: ExpansionTile(
-              title: const Text('Learn more'),
-              tilePadding: EdgeInsets.zero,
-              childrenPadding: const EdgeInsets.only(bottom: AppSpacing.sm),
-              children: [
-                Text(exercise.explanationFull, style: Theme.of(context).textTheme.bodyMedium),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xxl),
-          FilledButton(onPressed: onNext, child: const Text('Next')),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -780,77 +824,73 @@ class _PrayerStepView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppSpacing.xl),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'Step ${exercise.sequenceOrder}',
-            style: Theme.of(context).textTheme.labelLarge,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            exercise.instructionEn,
-            style: Theme.of(context).textTheme.bodyLarge,
-            textAlign: TextAlign.center,
-          ),
-          if (exercise.arabicText != null) ...[
-            const SizedBox(height: AppSpacing.xl),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                child: Column(
-                  children: [
-                    if (exercise.repeatCount != null) ...[
-                      Chip(
-                        label: Text('x${exercise.repeatCount}'),
-                        visualDensity: VisualDensity.compact,
-                        backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                    ],
-                    Text(
-                      exercise.arabicText!,
-                      style: AppTypography.arabic(fontSize: AppTypography.arabicSmall),
-                      textAlign: TextAlign.center,
-                      textDirection: TextDirection.rtl,
+    return _ExerciseScaffold(
+      onNext: onNext,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Step ${exercise.sequenceOrder}',
+          style: Theme.of(context).textTheme.labelLarge,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          exercise.instructionEn,
+          style: Theme.of(context).textTheme.bodyLarge,
+          textAlign: TextAlign.center,
+        ),
+        if (exercise.arabicText != null) ...[
+          const SizedBox(height: AppSpacing.xl),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Column(
+                children: [
+                  if (exercise.repeatCount != null) ...[
+                    Chip(
+                      label: Text('x${exercise.repeatCount}'),
+                      visualDensity: VisualDensity.compact,
+                      backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
                     ),
-                    if (exercise.transliteration != null) ...[
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        exercise.transliteration!,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontStyle: FontStyle.italic),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                    if (exercise.translationEn != null) ...[
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        exercise.translationEn!,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
+                    const SizedBox(height: AppSpacing.md),
                   ],
-                ),
+                  Text(
+                    exercise.arabicText!,
+                    style: AppTypography.arabic(fontSize: AppTypography.arabicSmall),
+                    textAlign: TextAlign.center,
+                    textDirection: TextDirection.rtl,
+                  ),
+                  if (exercise.transliteration != null) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      exercise.transliteration!,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontStyle: FontStyle.italic),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                  if (exercise.translationEn != null) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      exercise.translationEn!,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ],
               ),
             ),
-          ] else if (exercise.repeatCount != null) ...[
-            const SizedBox(height: AppSpacing.lg),
-            Center(
-              child: Chip(
-                label: Text('x${exercise.repeatCount}'),
-                visualDensity: VisualDensity.compact,
-                backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-              ),
+          ),
+        ] else if (exercise.repeatCount != null) ...[
+          const SizedBox(height: AppSpacing.lg),
+          Center(
+            child: Chip(
+              label: Text('x${exercise.repeatCount}'),
+              visualDensity: VisualDensity.compact,
+              backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
             ),
-          ],
-          const SizedBox(height: AppSpacing.xxl),
-          FilledButton(onPressed: onNext, child: const Text('Next')),
+          ),
         ],
-      ),
+      ],
     );
   }
 }
