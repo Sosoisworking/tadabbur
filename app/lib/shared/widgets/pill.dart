@@ -63,7 +63,12 @@ class PillButton extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label),
+          // Flexible, not a bare Text: a full-width pill carrying a long
+          // label ("Start my first lesson") has no room left at a large
+          // text scale, and a Row would clip it rather than wrap. Loose
+          // fit, so a label that already fits is laid out exactly as
+          // before — this only engages once the width runs out.
+          Flexible(child: Text(label, textAlign: TextAlign.center)),
           if (icon != null) ...[
             const SizedBox(width: AppSpacing.sm),
             Icon(icon, size: 20),
