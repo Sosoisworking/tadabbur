@@ -38,19 +38,60 @@ final deviceCoordinatesProvider = FutureProvider<Coordinates>((ref) {
   return ref.watch(locationRepositoryProvider).getCurrentCoordinates();
 });
 
-/// Resolves to the manually-picked city's coordinates when one is set,
-/// otherwise falls back to a fresh device GPS fix.
-final activeCoordinatesProvider = FutureProvider<Coordinates>((ref) async {
+/// The location prayer times are actually being calculated for, and the
+/// name to show for it.
+class ActivePrayerLocation {
+  const ActivePrayerLocation({required this.coordinates, required this.label});
+
+  final Coordinates coordinates;
+
+  /// Always a real place name — "Toronto, Canada", not "Current location"
+  /// — except when the device's own position is in use and there is no
+  /// city name to attach to it.
+  final String label;
+}
+
+/// Resolves, in order: the manually-picked city, the device's GPS fix, or
+/// [defaultCity].
+///
+/// The GPS step is allowed to fail. It routinely does — permission denied,
+/// no hardware, or a browser that simply never answers — and previously
+/// that failure propagated and replaced the whole tab with an error state,
+/// so a user who declined the location prompt could never see a prayer
+/// time at all. Falling through to a named default keeps the screen
+/// useful; the header shows which city is in use, and the location pill
+/// changes it.
+final activePrayerLocationProvider = FutureProvider<ActivePrayerLocation>((ref) async {
   final manualCity = await ref.watch(prayerLocationControllerProvider.future);
-  if (manualCity != null) return manualCity.coordinates;
-  return ref.watch(deviceCoordinatesProvider.future);
+  if (manualCity != null) {
+    return ActivePrayerLocation(
+      coordinates: manualCity.coordinates,
+      label: manualCity.displayName,
+    );
+  }
+
+  try {
+    final coordinates = await ref.watch(deviceCoordinatesProvider.future);
+    return ActivePrayerLocation(coordinates: coordinates, label: 'Current location');
+  } catch (error) {
+    // Not rethrown: see the doc comment above on why an unusable location
+    // is a fallback rather than an error for this screen.
+    return ActivePrayerLocation(
+      coordinates: defaultCity.coordinates,
+      label: defaultCity.displayName,
+    );
+  }
 });
 
 /// Muslim World League + Shafi madhab — the most globally common default
 /// pairing. Not user-configurable yet; a settings screen to change method/
 /// madhab is a natural follow-up once this tab ships.
 final prayerTimesProvider = FutureProvider<PrayerTimes>((ref) async {
-  final coordinates = await ref.watch(activeCoordinatesProvider.future);
+  final location = await ref.watch(activePrayerLocationProvider.future);
   final params = CalculationMethodParameters.muslimWorldLeague()..madhab = Madhab.shafi;
-  return PrayerTimes(date: DateTime.now(), coordinates: coordinates, calculationParameters: params);
+  return PrayerTimes(
+    date: DateTime.now(),
+    coordinates: location.coordinates,
+    calculationParameters: params,
+  );
 });

@@ -32,6 +32,13 @@ class _FakeAuthRepository extends AuthRepository {
 
 void main() {
   testWidgets('shows email/password fields and confirms after signing up', (tester) async {
+    // A phone-shaped surface, not the 800x600 default: this is a tall
+    // mobile layout, and in a landscape-ish window the controls end up
+    // outside the viewport where taps can't reach them.
+    tester.view.physicalSize = const Size(400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: [authRepositoryProvider.overrideWithValue(_FakeAuthRepository())],
@@ -39,16 +46,23 @@ void main() {
       ),
     );
 
-    expect(find.text('Tadabbur'), findsOneWidget);
+    // The wordmark is the Arabic تَدَبُّر rather than a Latin "Tadabbur" —
+    // the script is the brand here (design-system.md Brand Principle 2).
+    expect(find.text('تَدَبُّر'), findsOneWidget);
     expect(find.widgetWithText(TextField, 'Email'), findsOneWidget);
     expect(find.widgetWithText(TextField, 'Password'), findsOneWidget);
 
     await tester.enterText(find.widgetWithText(TextField, 'Email'), 'aisha@example.com');
     await tester.enterText(find.widgetWithText(TextField, 'Password'), 'a-real-password');
 
-    await tester.tap(find.text('Sign Up'));
+    // Switch to sign-up, then submit. The toggle and the submit button
+    // deliberately carry different labels ("Sign up" vs "Create account"),
+    // so tapping by text can't accidentally hit the wrong control.
+    // Tap the InkWell, not the bare Text: the label is painted inside the
+    // toggle's ink surface, which is what actually receives the pointer.
+    await tester.tap(find.widgetWithText(InkWell, 'Sign up'));
     await tester.pump();
-    await tester.tap(find.widgetWithText(FilledButton, 'Sign Up'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Create account'));
     await tester.pump();
 
     expect(

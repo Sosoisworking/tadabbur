@@ -19,6 +19,18 @@ class ManualCity {
   String get displayName => '$name, $country';
 }
 
+/// Where prayer times are calculated for when the device's own location
+/// can't be used — permission denied, hardware unavailable, or a browser
+/// that never answers the request.
+///
+/// A real city rather than an error: prayer times are the kind of thing a
+/// user opens the tab to glance at, and a screen that refuses to show any
+/// until a permission dialog is satisfied is worse than one showing a
+/// clearly-labelled default they can change. The label is always visible
+/// in the header, so the times on screen are never anonymous.
+ManualCity get defaultCity =>
+    manualCities.firstWhere((city) => city.id == 'toronto');
+
 /// A curated spread of Muslim-majority capitals/major cities plus large
 /// diaspora cities — not exhaustive, but enough to cover most users
 /// without pulling in a geocoding dependency (which also wouldn't work on

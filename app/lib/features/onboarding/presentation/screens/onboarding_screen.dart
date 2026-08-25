@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../shared/widgets/pill.dart';
 import '../../../auth/data/auth_repository.dart';
 
 /// Placeholder for the full onboarding flow in information-architecture.md
@@ -103,81 +105,295 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.xl),
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text('Tadabbur', style: AppTypography.accent(fontSize: 32, fontWeight: FontWeight.w600)),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  'Full onboarding (placement test, first lesson) lands in M2 — '
-                  'sign in below to exercise the auth flow.',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium,
+      body: Stack(
+        children: [
+          // The same soft radial the app uses to warm a corner of an
+          // otherwise very dark ground.
+          Positioned(
+            top: -140,
+            left: -100,
+            child: Container(
+              width: 360,
+              height: 360,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [AppColors.brandAccent.withValues(alpha: 0.16), Colors.transparent],
+                  stops: const [0, 0.7],
                 ),
-                const SizedBox(height: AppSpacing.xxl),
-                if (_checkEmailToConfirm)
-                  const Text(
-                    'Check your email to confirm your account, then log in below.',
-                    textAlign: TextAlign.center,
-                  )
-                else ...[
-                  SegmentedButton<_Mode>(
-                    segments: const [
-                      ButtonSegment(value: _Mode.logIn, label: Text('Log In')),
-                      ButtonSegment(value: _Mode.signUp, label: Text('Sign Up')),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.screenInset,
+                AppSpacing.xxl,
+                AppSpacing.screenInset,
+                AppSpacing.xxl,
+              ),
+              child: ConstrainedBox(
+                // Keeps the form from stretching into an unreadable line
+                // length on a tablet or a desktop browser window.
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const _Hero(),
+                    const SizedBox(height: AppSpacing.xxl),
+                    if (_checkEmailToConfirm)
+                      _Notice(
+                        icon: Icons.mark_email_unread_rounded,
+                        text: 'Check your email to confirm your account, then log in below.',
+                        color: AppColors.brandAccent,
+                      )
+                    else
+                      ..._buildAuthForm(),
+                    if (_error != null) ...[
+                      const SizedBox(height: AppSpacing.lg),
+                      _Notice(
+                        icon: Icons.error_outline_rounded,
+                        text: _error!,
+                        color: AppColors.error,
+                      ),
                     ],
-                    selected: {_mode},
-                    onSelectionChanged: (selection) => setState(() => _mode = selection.first),
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  TextField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder()),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  TextField(
-                    controller: _passwordController,
-                    obscureText: true,
-                    decoration: const InputDecoration(labelText: 'Password', border: OutlineInputBorder()),
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  FilledButton(
-                    onPressed: _submitting ? null : _submit,
-                    child: _submitting
-                        ? const SizedBox(
-                            height: AppSpacing.lg,
-                            width: AppSpacing.lg,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(_mode == _Mode.logIn ? 'Log In' : 'Sign Up'),
-                  ),
-                  const SizedBox(height: AppSpacing.xl),
-                  const Text('— or —'),
-                  const SizedBox(height: AppSpacing.sm),
-                  TextButton(
-                    onPressed: _continuingAnonymously ? null : _continueAnonymously,
-                    child: _continuingAnonymously
-                        ? const SizedBox(
-                            height: AppSpacing.lg,
-                            width: AppSpacing.lg,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Continue without an account'),
-                  ),
-                ],
-                if (_error != null) ...[
-                  const SizedBox(height: AppSpacing.lg),
-                  Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-                ],
-              ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildAuthForm() {
+    return [
+      _ModeToggle(
+        mode: _mode,
+        onChanged: (mode) => setState(() => _mode = mode),
+      ),
+      const SizedBox(height: AppSpacing.lg),
+      TextField(
+        controller: _emailController,
+        keyboardType: TextInputType.emailAddress,
+        autofillHints: const [AutofillHints.email],
+        textInputAction: TextInputAction.next,
+        decoration: const InputDecoration(labelText: 'Email'),
+      ),
+      const SizedBox(height: AppSpacing.md),
+      TextField(
+        controller: _passwordController,
+        obscureText: true,
+        autofillHints: const [AutofillHints.password],
+        textInputAction: TextInputAction.done,
+        onSubmitted: (_) => _submitting ? null : _submit(),
+        decoration: const InputDecoration(labelText: 'Password'),
+      ),
+      const SizedBox(height: AppSpacing.xl),
+      PillButton(
+        label: _mode == _Mode.logIn ? 'Log in' : 'Create account',
+        icon: Icons.east_rounded,
+        expand: true,
+        onPressed: _submitting ? null : _submit,
+      ),
+      const SizedBox(height: AppSpacing.xl),
+      Row(
+        children: [
+          const Expanded(child: Divider()),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            child: Text('or', style: AppTypography.label(fontSize: 12)),
+          ),
+          const Expanded(child: Divider()),
+        ],
+      ),
+      const SizedBox(height: AppSpacing.md),
+      Center(
+        child: TextButton(
+          onPressed: _continuingAnonymously ? null : _continueAnonymously,
+          child: Text(
+            'Continue without an account',
+            style: AppTypography.label(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.brandPrimary,
             ),
           ),
         ),
+      ),
+      // Progress for either action shares one slot below the buttons
+      // rather than replacing a button's label — swapping a label for a
+      // spinner collapses the button's width and makes the whole form
+      // jump while you wait.
+      SizedBox(
+        height: 24,
+        child: Center(
+          child: (_submitting || _continuingAnonymously)
+              ? const SizedBox(
+                  height: 18,
+                  width: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : null,
+        ),
+      ),
+    ];
+  }
+}
+
+class _Hero extends StatelessWidget {
+  const _Hero();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'تَدَبُّر',
+          textDirection: TextDirection.rtl,
+          style: AppTypography.arabic(fontSize: 52, color: AppColors.brandPrimary),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Text.rich(
+          TextSpan(
+            style: AppTypography.display(fontSize: 32),
+            children: [
+              const TextSpan(text: "Read a page you've never seen — and "),
+              TextSpan(
+                text: 'understand it.',
+                style: AppTypography.emphasis(AppColors.brandAccent),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          'Ten minutes a day. Less time than a single prayer.',
+          style: AppTypography.label(
+            fontSize: 15,
+            fontWeight: FontWeight.w400,
+            color: AppColors.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The two-state pill toggle, replacing Material's [SegmentedButton] —
+/// which clipped its own labels ("Log In" rendering as "Log") once the
+/// user's text size went up, because its segment height is fixed.
+class _ModeToggle extends StatelessWidget {
+  const _ModeToggle({required this.mode, required this.onChanged});
+
+  final _Mode mode;
+  final ValueChanged<_Mode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppColors.bgSurface,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        border: Border.all(color: AppColors.borderSubtle),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _ToggleHalf(
+              label: 'Log in',
+              selected: mode == _Mode.logIn,
+              onTap: () => onChanged(_Mode.logIn),
+            ),
+          ),
+          Expanded(
+            child: _ToggleHalf(
+              label: 'Sign up',
+              selected: mode == _Mode.signUp,
+              onTap: () => onChanged(_Mode.signUp),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ToggleHalf extends StatelessWidget {
+  const _ToggleHalf({required this.label, required this.selected, required this.onTap});
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: Material(
+        color: selected ? AppColors.brandPrimary : Colors.transparent,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            // Vertical padding rather than a fixed height, so the pill
+            // grows with the label instead of cropping it.
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: AppTypography.label(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: selected ? AppColors.onPrimary : AppColors.textSecondary,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A tinted, bordered message block — the confirm-your-email prompt and
+/// auth errors, which previously rendered as bare unstyled text.
+class _Notice extends StatelessWidget {
+  const _Notice({required this.icon, required this.text, required this.color});
+
+  final IconData icon;
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20, color: color),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Text(
+              text,
+              style: AppTypography.label(
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -33,3 +33,6 @@ supabase/.temp/
 # third-party copyrighted works into version control. Extracted content
 # lives in supabase/migrations/ as our own transcription/adaptation.
 *.pdf
+
+# Personal, machine-specific Claude Code permissions — not shared.
+.claude/settings.local.json

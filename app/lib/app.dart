@@ -14,8 +14,7 @@ class TadabburApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'Tadabbur',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
+      theme: AppTheme.dark(),
       // English-first UI chrome per docs/PRD.md decision — locale controls
       // date/number formatting only, not a bilingual UI toggle in v1.
       routerConfig: router,

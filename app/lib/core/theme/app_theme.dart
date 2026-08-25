@@ -1,150 +1,143 @@
 import 'package:flutter/material.dart';
 
 import 'app_colors.dart';
-import 'app_semantic_colors.dart';
 import 'app_spacing.dart';
 import 'app_typography.dart';
 
-/// Builds the light and dark ThemeData from docs/design-system.md tokens.
-/// Contrast pairs there are verified at WCAG AA — if you change a color
-/// here, re-verify contrast before shipping, don't assume it still holds.
+/// Builds the app's single dark ThemeData. The design is dark-first and
+/// ships dark only — there is no light variant to keep in sync, so a
+/// palette change is [AppColors] plus this file and nothing else.
 class AppTheme {
   AppTheme._();
 
-  static ThemeData light() {
-    const primary = AppColors.lightBrandPrimary;
-    const accent = AppColors.lightBrandAccent;
-    const surface = AppColors.lightBgSurface;
-    const textPrimary = AppColors.lightTextPrimary;
-    const textSecondary = AppColors.lightTextSecondary;
-
-    // ColorScheme.light() only fills the handful of roles passed to it —
-    // Material 3 has ~30 (primaryContainer, surfaceContainerHighest,
-    // outline, the NavigationBar indicator, ...), and every role left
-    // unset quietly falls back to Flutter's own default purple seed. That
-    // was the actual cause of the app feeling generic: our warm
-    // emerald/gold palette was only reaching a few widgets, and
-    // everything else (nav bar selection, chips, container tints) was
-    // showing Material's stock purple underneath. fromSeed derives a
-    // full, harmonious palette from our own primary color instead of
-    // Material's, then the explicit overrides below still win for the
-    // handful of roles docs/design-system.md specifies exactly.
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: primary,
-      brightness: Brightness.light,
-    ).copyWith(
-      primary: primary,
-      secondary: accent,
-      surface: surface,
-      error: AppColors.lightError,
-      onPrimary: Colors.white,
-      onSurface: textPrimary,
-    );
-
-    return ThemeData(
-      useMaterial3: true,
-      brightness: Brightness.light,
-      scaffoldBackgroundColor: AppColors.lightBgBase,
-      colorScheme: colorScheme,
-      textTheme: AppTypography.textTheme(textPrimary, textSecondary),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.lightBgBase,
-        foregroundColor: textPrimary,
-        elevation: 0,
-      ),
-      navigationBarTheme: _navigationBarTheme(primary, accent, surface, textSecondary),
-      chipTheme: _chipTheme(colorScheme),
-      cardTheme: _cardTheme(surface),
-      extensions: const [
-        AppSemanticColors(success: AppColors.lightSuccess, locked: AppColors.lightLocked),
-      ],
-    );
-  }
-
   static ThemeData dark() {
-    const primary = AppColors.darkBrandPrimary;
-    const accent = AppColors.darkBrandAccent;
-    const surface = AppColors.darkBgSurface;
-    const textPrimary = AppColors.darkTextPrimary;
-    const textSecondary = AppColors.darkTextSecondary;
-
+    // ColorScheme.dark() only fills the handful of roles passed to it —
+    // Material 3 has ~30, and every role left unset quietly falls back to
+    // Flutter's own default purple seed, which then surfaces in chips,
+    // container tints, and selection states. fromSeed derives a full
+    // harmonious palette from our own primary; the explicit overrides
+    // below still win for the roles the design specifies exactly.
     final colorScheme = ColorScheme.fromSeed(
-      seedColor: primary,
+      seedColor: AppColors.brandPrimary,
       brightness: Brightness.dark,
     ).copyWith(
-      primary: primary,
-      secondary: accent,
-      surface: surface,
-      error: AppColors.darkError,
-      onPrimary: Colors.black,
-      onSurface: textPrimary,
+      primary: AppColors.brandPrimary,
+      onPrimary: AppColors.onPrimary,
+      secondary: AppColors.brandAccent,
+      onSecondary: AppColors.onAccent,
+      surface: AppColors.bgSurface,
+      onSurface: AppColors.textPrimary,
+      error: AppColors.error,
+      outline: AppColors.borderSubtle,
     );
 
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
-      scaffoldBackgroundColor: AppColors.darkBgBase,
+      scaffoldBackgroundColor: AppColors.bgBase,
       colorScheme: colorScheme,
-      textTheme: AppTypography.textTheme(textPrimary, textSecondary),
+      textTheme: AppTypography.textTheme(),
       appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.darkBgBase,
-        foregroundColor: textPrimary,
+        backgroundColor: AppColors.bgBase,
+        foregroundColor: AppColors.textPrimary,
         elevation: 0,
+        scrolledUnderElevation: 0,
       ),
-      navigationBarTheme: _navigationBarTheme(primary, accent, surface, textSecondary),
-      chipTheme: _chipTheme(colorScheme),
-      cardTheme: _cardTheme(surface),
-      extensions: const [
-        AppSemanticColors(success: AppColors.darkSuccess, locked: AppColors.darkLocked),
-      ],
+      cardTheme: _cardTheme(),
+      chipTheme: _chipTheme(),
+      inputDecorationTheme: _inputTheme(),
+      filledButtonTheme: _filledButtonTheme(),
+      textButtonTheme: _textButtonTheme(),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: AppColors.brandPrimary,
+        linearTrackColor: AppColors.borderSubtle,
+      ),
+      dividerTheme: const DividerThemeData(color: AppColors.borderSubtle, thickness: 1),
+      // No ThemeExtension for success/locked: those existed only to swap
+      // per brightness, and the app is dark-only now. Widgets read
+      // AppColors.success / AppColors.locked directly — one spelling per
+      // color rather than two.
     );
   }
 
-  /// One card idiom for the whole app — flat-ish (elevation 1, no heavy
-  /// drop shadow) with a consistent radius, so a screen never has to
-  /// choose between `Card` and a hand-rolled `Material`+`InkWell` to get
-  /// the "right" look; `Card` always gives the right look.
-  static CardThemeData _cardTheme(Color surface) {
+  /// One card idiom for the whole app: no drop shadow, a hairline border,
+  /// and a generous radius. Depth comes from the border and the surface
+  /// step above the ground, not from elevation — Material's shadows read
+  /// as muddy smears against a near-black background.
+  static CardThemeData _cardTheme() {
     return CardThemeData(
-      elevation: 1,
-      color: surface,
+      elevation: 0,
+      color: AppColors.bgSurface,
       surfaceTintColor: Colors.transparent,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.lg),
+        side: const BorderSide(color: AppColors.borderSubtle),
       ),
     );
   }
 
-  static NavigationBarThemeData _navigationBarTheme(
-    Color primary,
-    Color accent,
-    Color surface,
-    Color textSecondary,
-  ) {
-    return NavigationBarThemeData(
-      backgroundColor: surface,
-      indicatorColor: accent.withValues(alpha: 0.25),
-      iconTheme: WidgetStateProperty.resolveWith(
-        (states) => IconThemeData(
-          color: states.contains(WidgetState.selected) ? primary : textSecondary,
-        ),
+  /// Text fields follow the same over-rounded, hairline-bordered idiom as
+  /// every other container, so a form doesn't read as Material dropped
+  /// into the middle of the design.
+  static InputDecorationTheme _inputTheme() {
+    OutlineInputBorder border(Color color, [double width = 1]) => OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderSide: BorderSide(color: color, width: width),
+        );
+
+    return InputDecorationTheme(
+      filled: true,
+      fillColor: AppColors.bgSurface,
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.lg,
       ),
-      labelTextStyle: WidgetStateProperty.resolveWith(
-        (states) => TextStyle(
-          fontSize: 12,
-          color: states.contains(WidgetState.selected) ? primary : textSecondary,
-          fontWeight: states.contains(WidgetState.selected) ? FontWeight.w600 : FontWeight.normal,
-        ),
+      hintStyle: AppTypography.label(fontSize: 14, fontWeight: FontWeight.w400),
+      labelStyle: AppTypography.label(fontSize: 14, fontWeight: FontWeight.w400),
+      floatingLabelStyle: AppTypography.label(
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
+        color: AppColors.brandPrimary,
       ),
+      enabledBorder: border(AppColors.borderSubtle),
+      focusedBorder: border(AppColors.brandPrimary, 1.5),
+      errorBorder: border(AppColors.error),
+      focusedErrorBorder: border(AppColors.error, 1.5),
     );
   }
 
-  static ChipThemeData _chipTheme(ColorScheme colorScheme) {
+  static ChipThemeData _chipTheme() {
     return ChipThemeData(
-      backgroundColor: colorScheme.secondaryContainer,
-      labelStyle: TextStyle(color: colorScheme.onSecondaryContainer),
-      side: BorderSide.none,
+      backgroundColor: Colors.transparent,
+      labelStyle: AppTypography.label(fontSize: 11.5),
+      side: const BorderSide(color: AppColors.borderSubtle),
+      shape: const StadiumBorder(),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+    );
+  }
+
+  static FilledButtonThemeData _filledButtonTheme() {
+    return FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        backgroundColor: AppColors.brandPrimary,
+        foregroundColor: AppColors.onPrimary,
+        minimumSize: const Size(0, AppSpacing.minTouchTarget),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+        shape: const StadiumBorder(),
+        textStyle: AppTypography.label(fontSize: 15, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+
+  static TextButtonThemeData _textButtonTheme() {
+    return TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: AppColors.brandPrimary,
+        minimumSize: const Size(0, AppSpacing.minTouchTarget),
+        shape: const StadiumBorder(),
+        textStyle: AppTypography.label(fontSize: 13, fontWeight: FontWeight.w500),
+      ),
     );
   }
 }

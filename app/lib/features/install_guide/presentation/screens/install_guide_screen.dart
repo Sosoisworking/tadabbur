@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
-import '../../../../shared/widgets/app_card.dart';
+import '../../../../core/theme/app_typography.dart';
+import '../../../../shared/widgets/screen_header.dart';
 
 enum _Platform { ios, android }
 
@@ -51,73 +53,156 @@ class _InstallGuideScreenState extends State<InstallGuideScreen> {
     final steps = _selected == _Platform.ios ? _iosSteps : _androidSteps;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Row(
+      body: SafeArea(
+        bottom: false,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.screenInset,
+            AppSpacing.md,
+            AppSpacing.screenInset,
+            AppSpacing.navOverlayInset,
+          ),
           children: [
-            Icon(Icons.install_mobile_rounded, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(width: 10),
-            const Text('Install'),
+            const ScreenHeader(
+              eyebrow: 'No app store needed',
+              title: 'Put Tadabbur on your home screen',
+              titleSize: 28,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'It runs full-screen and offline, and your progress stays exactly where it was.',
+              style: AppTypography.label(fontSize: 14.5, fontWeight: FontWeight.w400, color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: AppSpacing.xl),
+            Row(
+              children: [
+                Expanded(
+                  child: _PlatformPill(
+                    icon: Icons.phone_iphone_rounded,
+                    label: 'iPhone',
+                    selected: _selected == _Platform.ios,
+                    onTap: () => setState(() => _selected = _Platform.ios),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: _PlatformPill(
+                    icon: Icons.phone_android_rounded,
+                    label: 'Android',
+                    selected: _selected == _Platform.android,
+                    onTap: () => setState(() => _selected = _Platform.android),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.xl),
+            for (var i = 0; i < steps.length; i++)
+              _StepRow(number: i + 1, step: steps[i], isLast: i == steps.length - 1),
           ],
         ),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        children: [
-          Text(
-            'Add Tadabbur to your home screen for quick, full-screen access — '
-            'no App Store or Play Store download needed.',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          SegmentedButton<_Platform>(
-            segments: const [
-              ButtonSegment(value: _Platform.ios, label: Text('iPhone'), icon: Icon(Icons.phone_iphone_rounded)),
-              ButtonSegment(
-                value: _Platform.android,
-                label: Text('Android'),
-                icon: Icon(Icons.phone_android_rounded),
-              ),
-            ],
-            selected: {_selected},
-            onSelectionChanged: (selection) => setState(() => _selected = selection.first),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          for (var i = 0; i < steps.length; i++)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-              child: _StepCard(number: i + 1, step: steps[i]),
-            ),
-        ],
       ),
     );
   }
 }
 
-class _StepCard extends StatelessWidget {
-  const _StepCard({required this.number, required this.step});
+class _PlatformPill extends StatelessWidget {
+  const _PlatformPill({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
-  final int number;
-  final _Step step;
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return AppCard(
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 16,
-            backgroundColor: colorScheme.primaryContainer,
-            child: Text(
-              '$number',
-              style: TextStyle(color: colorScheme.onPrimaryContainer, fontWeight: FontWeight.bold),
-            ),
+    final foreground = selected ? AppColors.onPrimary : AppColors.textPrimary;
+
+    return Material(
+      color: selected ? AppColors.brandPrimary : Colors.transparent,
+      shape: StadiumBorder(
+        side: BorderSide(color: selected ? AppColors.brandPrimary : AppColors.borderStrong, width: 1.5),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 13),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: foreground),
+              const SizedBox(width: 7),
+              Text(label, style: AppTypography.label(fontSize: 13.5, fontWeight: FontWeight.w600, color: foreground)),
+            ],
           ),
-          const SizedBox(width: AppSpacing.md),
-          Icon(step.icon, color: colorScheme.secondary),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(child: Text(step.text, style: Theme.of(context).textTheme.bodyLarge)),
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StepRow extends StatelessWidget {
+  const _StepRow({required this.number, required this.step, required this.isLast});
+
+  final int number;
+  final _Step step;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: isLast ? 0 : 22),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 38,
+              child: Column(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.brandAccent.withValues(alpha: 0.4)),
+                    ),
+                    child: Text(
+                      '$number',
+                      style: AppTypography.numeric(fontSize: 14, color: AppColors.brandAccent),
+                    ),
+                  ),
+                  if (!isLast)
+                    Expanded(
+                      child: Container(width: 1.5, margin: const EdgeInsets.only(top: 4), color: AppColors.borderSubtle),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: AppSpacing.lg),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Icon(step.icon, size: 18, color: AppColors.textSecondary),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(step.text, style: AppTypography.display(fontSize: 16)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

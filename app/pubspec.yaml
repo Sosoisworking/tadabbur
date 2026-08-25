@@ -68,6 +68,11 @@ dependencies:
   # declared directly here since prayer_times imports it itself.
   shared_preferences: ^2.5.5
 
+  # Hijri calendar conversion for the date kicker on Learn and Prayer.
+  # Tabular/arithmetic conversion done locally, consistent with the
+  # offline-first stance already taken for prayer times.
+  hijri: ^3.0.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

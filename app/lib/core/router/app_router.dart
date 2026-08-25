@@ -28,6 +28,11 @@ final _authRefreshNotifierProvider = Provider<_AuthRefreshNotifier>((ref) {
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final client = ref.watch(supabaseClientProvider);
+  // Kept alive for the life of the router: it turns an unrefreshable
+  // session into a normal signed-out state, which the redirect below then
+  // sends to onboarding. Without something watching it, the provider is
+  // never created and the listener never runs.
+  ref.watch(authFailureRecoveryProvider);
 
   return GoRouter(
     initialLocation: '/learn',
