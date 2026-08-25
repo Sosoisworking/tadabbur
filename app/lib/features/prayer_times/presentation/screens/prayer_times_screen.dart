@@ -12,7 +12,6 @@ import '../../../../core/util/hijri_date.dart';
 import '../../../../shared/widgets/pill.dart';
 import '../../../../shared/widgets/screen_header.dart';
 import '../../../review/data/srs_repository.dart';
-import '../../data/location_repository.dart';
 import '../../domain/manual_city.dart';
 import '../providers/prayer_times_providers.dart';
 import '../widgets/city_picker_sheet.dart';
@@ -73,6 +72,7 @@ class _PrayerTimesScreenState extends ConsumerState<PrayerTimesScreen> {
   Widget build(BuildContext context) {
     final prayerTimesAsync = ref.watch(prayerTimesProvider);
     final locationLabel = ref.watch(activePrayerLocationProvider).valueOrNull?.label;
+    final hijriDayOffset = ref.watch(hijriDayOffsetProvider);
 
     return Scaffold(
       body: SafeArea(
@@ -100,7 +100,7 @@ class _PrayerTimesScreenState extends ConsumerState<PrayerTimesScreen> {
                 ),
                 children: [
                   ScreenHeader(
-                    eyebrow: 'Today · ${hijriTodayShort()}',
+                    eyebrow: 'Today · ${hijriTodayShort(dayOffset: hijriDayOffset)}',
                     title: next.displayName,
                     emphasis: _formatCountdown(remaining),
                     emphasisColor: AppColors.textSecondary,
@@ -238,6 +238,7 @@ class _PrayerTimeline extends StatelessWidget {
                   time: prayerTimes.timeForPrayer(prayer).toLocal(),
                   isCurrent: prayer == current,
                   isPast: prayer != current && prayerTimes.timeForPrayer(prayer).toLocal().isBefore(now),
+                  note: _noteFor(prayer, prayerTimes),
                 ),
                 if (prayer == current) _NowConnector(time: now),
               ],
@@ -250,12 +251,22 @@ class _PrayerTimeline extends StatelessWidget {
 }
 
 class _PrayerRow extends StatelessWidget {
-  const _PrayerRow({required this.prayer, required this.time, required this.isCurrent, required this.isPast});
+  const _PrayerRow({
+    required this.prayer,
+    required this.time,
+    required this.isCurrent,
+    required this.isPast,
+    this.note,
+  });
 
   final Prayer prayer;
   final DateTime time;
   final bool isCurrent;
   final bool isPast;
+
+  /// Second line under the prayer name, for the rows that have a real
+  /// calculated time to name there. Most don't, and get none.
+  final String? note;
 
   @override
   Widget build(BuildContext context) {
@@ -281,24 +292,34 @@ class _PrayerRow extends StatelessWidget {
                 ),
               ),
             ),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  prayer.displayName,
-                  style: AppTypography.display(fontSize: 21, color: isCurrent ? AppColors.textPrimary : null),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(
+                      prayer.displayName,
+                      style: AppTypography.display(fontSize: 21, color: isCurrent ? AppColors.textPrimary : null),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      _arabicNames[prayer] ?? '',
+                      style: AppTypography.arabic(fontSize: 24, color: dotColor),
+                    ),
+                    const Spacer(),
+                    Text(
+                      _formatTime(time),
+                      style: AppTypography.numeric(fontSize: 15, color: isCurrent ? AppColors.textPrimary : AppColors.textSecondary),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 10),
-                Text(
-                  _arabicNames[prayer] ?? '',
-                  style: AppTypography.arabic(fontSize: 24, color: dotColor),
-                ),
-                const Spacer(),
-                Text(
-                  _formatTime(time),
-                  style: AppTypography.numeric(fontSize: 15, color: isCurrent ? AppColors.textPrimary : AppColors.textSecondary),
-                ),
+                if (note != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(note!, style: AppTypography.label(fontSize: 11)),
+                  ),
               ],
             ),
           ],
@@ -348,6 +369,11 @@ class _NowConnector extends StatelessWidget {
   }
 }
 
+/// Shown when the times themselves can't be produced — never when the
+/// location is unknown. [activePrayerLocationProvider] absorbs GPS failure
+/// and falls back to [defaultCity], so a `LocationFailureException` can no
+/// longer reach this widget; blaming location here would send the user
+/// chasing a permission prompt that isn't the problem.
 class _ErrorState extends StatelessWidget {
   const _ErrorState({required this.error, required this.onRetry, required this.onPickCity});
 
@@ -357,10 +383,6 @@ class _ErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final message = error is LocationFailureException
-        ? (error as LocationFailureException).message
-        : 'Could not determine your location.\n$error';
-
     return LayoutBuilder(
       builder: (context, constraints) => SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -372,19 +394,26 @@ class _ErrorState extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.location_off_outlined, size: 64, color: AppColors.error),
+                  const Icon(Icons.error_outline_rounded, size: 64, color: AppColors.error),
                   const SizedBox(height: AppSpacing.lg),
                   Text(
-                    "Can't find your location",
+                    "Couldn't work out today's times",
                     style: AppTypography.display(fontSize: 22),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: AppSpacing.sm),
-                  Text(message, textAlign: TextAlign.center, style: AppTypography.label(fontSize: 14)),
+                  Text(
+                    'Something went wrong calculating them.\n$error',
+                    textAlign: TextAlign.center,
+                    style: AppTypography.label(fontSize: 14),
+                  ),
                   const SizedBox(height: AppSpacing.xl),
                   PillButton(label: 'Try again', onPressed: onRetry),
                   const SizedBox(height: AppSpacing.sm),
-                  PillButton(label: 'Choose a city instead', tone: PillTone.outline, onPressed: onPickCity),
+                  // Kept because the surviving failure modes are tied to the
+                  // location in use — a different city recalculates from
+                  // scratch — not because location lookup can fail.
+                  PillButton(label: 'Choose another city', tone: PillTone.outline, onPressed: onPickCity),
                 ],
               ),
             ),
@@ -393,6 +422,16 @@ class _ErrorState extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Isha is the only row with a second time worth naming: [SunnahTimes]
+/// derives the last third of the night from the same calculation, so it
+/// costs nothing extra and is real data rather than decoration. The other
+/// prayers have no comparable figure, so they get no note at all.
+String? _noteFor(Prayer prayer, PrayerTimes prayerTimes) {
+  if (prayer != Prayer.isha) return null;
+  final lastThird = SunnahTimes(prayerTimes).lastThirdOfTheNight.toLocal();
+  return 'Last third begins ${_formatTime(lastThird)}';
 }
 
 String _formatTime(DateTime time) {
