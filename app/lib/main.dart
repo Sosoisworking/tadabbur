@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app.dart';
 import 'core/services/supabase_service.dart';
 import 'core/startup/startup_failure_app.dart';
+import 'features/settings/presentation/providers/settings_providers.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,8 +27,15 @@ Future<void> _start() async {
     return;
   }
 
-  runApp(const ProviderScope(child: TadabburApp()));
+  runApp(_app());
 }
+
+/// The root scope, built in one place so both start paths below get the
+/// same overrides. [settingsOverrides] is what points the app's Hijri and
+/// prayer-calculation seams at the user's saved preferences — without it
+/// the app runs on the built-in defaults and the Settings screen appears
+/// to do nothing.
+Widget _app() => ProviderScope(overrides: settingsOverrides, child: const TadabburApp());
 
 /// Retries startup in place. Returns false if it failed again, leaving the
 /// failure screen up so the user can try once more; on success the running
@@ -40,6 +48,6 @@ Future<bool> _retryStart() async {
     debugPrint('Startup retry failed: $error');
     return false;
   }
-  runApp(const ProviderScope(child: TadabburApp()));
+  runApp(_app());
   return true;
 }

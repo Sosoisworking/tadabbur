@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
+import 'pill.dart';
+import 'settings_scope.dart';
 
 /// Every top-level screen opens the same way: a tracked-out uppercase
 /// kicker, then a large flush-left serif title whose final clause is
@@ -30,12 +32,16 @@ class ScreenHeader extends StatelessWidget {
   final double titleSize;
 
   /// Sits opposite the title, vertically top-aligned with the eyebrow —
-  /// the streak ring on Learn, the location pill on Prayer.
+  /// the streak ring on Learn, the location pill on Prayer. Where Settings
+  /// is reachable (see [SettingsScope]) the gear sits to the right of it,
+  /// so the entry point lands in the same corner on every screen that has
+  /// one instead of moving with whatever else the header carries.
   final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
     final base = AppTypography.display(fontSize: titleSize);
+    final openSettings = SettingsScope.maybeOf(context);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -69,9 +75,30 @@ class ScreenHeader extends StatelessWidget {
             ],
           ),
         ),
-        if (trailing != null) ...[
+        if (trailing != null || openSettings != null) ...[
           const SizedBox(width: AppSpacing.lg),
-          trailing!,
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ?trailing,
+              if (openSettings != null) ...[
+                if (trailing != null) const SizedBox(width: AppSpacing.sm),
+                Semantics(
+                  label: 'Settings',
+                  button: true,
+                  container: true,
+                  excludeSemantics: true,
+                  child: CircleIconButton(
+                    icon: Icons.settings_rounded,
+                    // The 44pt floor docs/design-system.md calls
+                    // non-negotiable, not the widget's 40pt default.
+                    size: AppSpacing.minTouchTarget,
+                    onPressed: () => openSettings(context),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ],
       ],
     );

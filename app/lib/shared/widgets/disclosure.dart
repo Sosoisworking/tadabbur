@@ -48,12 +48,19 @@ class _DisclosureState extends State<Disclosure> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    widget.label,
-                    style: AppTypography.label(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.brandPrimary,
+                  // Flexible, not a bare Text: the label is a short
+                  // question ("Why would this be off?") that runs out of
+                  // room at a large text scale, and a Row clips rather
+                  // than wraps. Loose fit, so a label that already fits
+                  // lays out exactly as before.
+                  Flexible(
+                    child: Text(
+                      widget.label,
+                      style: AppTypography.label(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.brandPrimary,
+                      ),
                     ),
                   ),
                   const SizedBox(width: AppSpacing.xs),
