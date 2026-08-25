@@ -479,9 +479,14 @@ void main() {
   });
 
   group('diacritic intro grid', () {
-    // scrollable: false exists solely so this GridView gets a bounded
-    // height. If that ever regresses, the grid is handed unbounded height
-    // and the whole screen throws instead of rendering.
+    // scrollable: false exists solely so this grid gets a bounded
+    // height. If that ever regresses, it is handed unbounded height and
+    // the whole screen throws instead of rendering.
+    //
+    // The grid is a Wrap of content-sized cells inside its own scroll
+    // view, not a GridView: every grid delegate needs the cell height
+    // declared up front, and each way of declaring it was a guess about
+    // rendered text that broke once the user scaled text up.
     testWidgets('lays out its 28-cell grid inside the card without overflowing', (tester) async {
       await _pumpPlayer(tester, exercises: [_diacriticIntro(), _vocabCard]);
 
@@ -489,7 +494,7 @@ void main() {
       expect(find.text('Fathah'), findsOneWidget);
       expect(find.text('A short "a" sound'), findsOneWidget);
 
-      final grid = find.byType(GridView);
+      final grid = find.byType(Wrap);
       expect(grid, findsOneWidget);
       // Bounded, and inside the card rather than spilling past it.
       final gridSize = tester.getSize(grid);
@@ -497,7 +502,7 @@ void main() {
       expect(gridSize.height, lessThan(tester.getSize(find.byType(Scaffold)).height));
 
       // The grid scrolls itself, so the cells past the fold still lay out.
-      await tester.drag(grid, const Offset(0, -400));
+      await tester.drag(find.byType(SingleChildScrollView).last, const Offset(0, -400));
       await tester.pump();
       expect(tester.takeException(), isNull);
     });
@@ -506,7 +511,7 @@ void main() {
       await _pumpPlayer(tester, exercises: [_diacriticIntro()]);
 
       expect(tester.takeException(), isNull);
-      expect(find.byType(GridView), findsOneWidget);
+      expect(find.byType(Wrap), findsOneWidget);
       expect(_paintedGhostCount(tester), 0);
     });
   });
@@ -644,37 +649,45 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    // Deliberately NOT covered: the diacritic grid and the letter card at
-    // large text scales. Both overflow today — see the bug notes below.
-    // Asserting the overflow would lock the defect in as expected
-    // behaviour, so these stay uncovered rather than wrong.
+    // The three defects noted at the bottom of this file when it was
+    // written have since been fixed; these are the cases that were held
+    // back until they could assert the right behaviour rather than lock
+    // the overflow in.
+    testWidgets('diacritic grid does not overflow at 2.0x', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+      await _pumpPlayer(tester, exercises: [_diacriticIntro()]);
+      expect(tester.takeException(), isNull);
+
+      // The grid owns the overflow: it has to be able to scroll its
+      // now-taller rows rather than clip them.
+      await tester.drag(find.byType(SingleChildScrollView).last, const Offset(0, -400));
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('letter card does not overflow at 2.0x, disclosure open', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+      await _pumpPlayer(tester, exercises: [_letterCard]);
+      expect(tester.takeException(), isNull);
+
+      // "Where is this pronounced?" is the longest Disclosure label in the
+      // app and the one that used to overflow; opening it also exercises
+      // the positional-forms row above it.
+      await tester.tap(find.text('Where is this pronounced?'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
   });
 }
 
 // ---------------------------------------------------------------------------
-// Known layout defects, found while writing the tests above and left
-// unfixed here (this file may only touch test code):
-//
-// 1. lesson_player_screen.dart:615-619 — _DiacriticIntroView's GridView
-//    fixes childAspectRatio at 0.8, so each cell's height is derived from
-//    the column width and never from the text it has to hold. Its content
-//    is Arabic at AppTypography.arabicCompact (40, line height 1.8 = 72px)
-//    plus a 11px reading label, which fits a ~94px cell at 1.0x and blows
-//    straight through it once the user scales text up: at 2.0x the cell
-//    Column (line 629) overflows by 232px. scrollable: false correctly
-//    bounds the *grid*; nothing bounds the cell.
-//
-// 2. disclosure.dart:48 — the header Row puts the label Text and the
-//    chevron side by side with no Flexible on either, so a long label has
-//    nowhere to wrap. "Where is this pronounced?" (the letter card's) at
-//    2.0x needs ~332px against ~293px of card interior on a 393pt phone,
-//    and overflows to the right. Every other Disclosure label in the app
-//    is short enough ("Learn more") to stay under the limit today.
-//
-// 3. lesson_player_screen.dart:734 — _PositionalFormsRow lays its three
-//    labelled columns out with MainAxisAlignment.spaceEvenly and no flex,
-//    so "Beginning"/"Middle"/"End" can't wrap or ellipsize. Marginal on a
-//    real font (it still fits a 393pt phone at 2.0x); it overflows here
-//    from 1.5x up because the test font is about twice as wide. Same
-//    shape of defect as (2) — worth a Flexible either way.
+// Three large-text overflows were found while writing these tests and have
+// since been fixed: the diacritic grid's fixed cell height (now a Wrap of
+// content-sized cells), Disclosure's unwrappable header label, and
+// _PositionalFormsRow's unflexed columns. The 2.0x cases in the "text
+// scale" group above are what hold them fixed.
 // ---------------------------------------------------------------------------

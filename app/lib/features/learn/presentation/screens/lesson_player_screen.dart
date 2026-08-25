@@ -610,35 +610,60 @@ class _DiacriticIntroView extends StatelessWidget {
           const Divider(),
           const SizedBox(height: AppSpacing.md),
           Expanded(
-            child: GridView.builder(
-              padding: EdgeInsets.zero,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 4,
-                mainAxisSpacing: 16,
-                childAspectRatio: 0.8,
-              ),
-              itemCount: exercise.allLetterForms.length,
-              itemBuilder: (context, index) {
-                final letterForm = exercise.allLetterForms[index];
-                // Neither of these is stored anywhere — see
-                // DiacriticIntroExercise's doc comment for why.
-                final combined = letterForm.isolatedForm + exercise.markUnicode;
-                final reading = (exercise.doublesConsonant ? letterForm.baseConsonant : '') +
-                    letterForm.baseConsonant +
-                    exercise.readingSuffix;
-                return Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      combined,
-                      style: AppTypography.arabic(
-                        fontSize: AppTypography.arabicCompact,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(reading, style: AppTypography.label(fontSize: 11)),
-                  ],
+            // A Wrap of content-sized cells rather than a GridView.
+            //
+            // Every grid delegate wants the cell height up front — as an
+            // aspect ratio of the column width, or as an explicit extent.
+            // Both are a guess about how tall rendered text will be, and
+            // the aspect ratio this used to carry was wrong by over 200px
+            // once the user scaled text up. Computing the extent instead
+            // just moves the guess: it still has to assume each font's
+            // line height, and was still short by a couple of pixels.
+            //
+            // A Wrap asks each cell how tall it actually is and sizes the
+            // run to the tallest, so the whole class of mismatch goes
+            // away. Fine for a fixed 28-cell alphabet; it lays out every
+            // child eagerly, so don't reach for this on a long list.
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                const columns = 4;
+                const spacing = 16.0;
+                final cellWidth =
+                    (constraints.maxWidth - spacing * (columns - 1)) / columns;
+
+                return SingleChildScrollView(
+                  child: Wrap(
+                    spacing: spacing,
+                    runSpacing: spacing,
+                    children: [
+                      for (final letterForm in exercise.allLetterForms)
+                        SizedBox(
+                          width: cellWidth,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Neither of these is stored anywhere — see
+                              // DiacriticIntroExercise's doc comment for why.
+                              Text(
+                                letterForm.isolatedForm + exercise.markUnicode,
+                                style: AppTypography.arabic(
+                                  fontSize: AppTypography.arabicCompact,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: AppSpacing.xs),
+                              Text(
+                                (exercise.doublesConsonant ? letterForm.baseConsonant : '') +
+                                    letterForm.baseConsonant +
+                                    exercise.readingSuffix,
+                                textAlign: TextAlign.center,
+                                style: AppTypography.label(fontSize: 11),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
                 );
               },
             ),
@@ -735,12 +760,22 @@ class _PositionalFormsRow extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
         for (final (label, form) in forms)
-          Column(
-            children: [
-              Text(form, style: AppTypography.arabic(fontSize: AppTypography.arabicSmall)),
-              const SizedBox(height: AppSpacing.xs),
-              Text(label, style: AppTypography.label(fontSize: 11)),
-            ],
+          // Each column takes a third of the row rather than its natural
+          // width: "Beginning" is the widest label and, unflexed, three of
+          // them overflow the row once the user's text size grows. An
+          // equal share lets the label wrap instead.
+          Expanded(
+            child: Column(
+              children: [
+                Text(form, style: AppTypography.arabic(fontSize: AppTypography.arabicSmall)),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: AppTypography.label(fontSize: 11),
+                ),
+              ],
+            ),
           ),
       ],
     );
