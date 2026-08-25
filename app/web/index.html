@@ -25,13 +25,18 @@
     swaps the tag in. The content below is byte-for-byte what the engine
     installs, so the swap is a no-op and nothing moves.
 
-    Deliberately NOT viewport-fit=cover. Flutter Web hard-codes
-    ViewConfiguration.viewPadding to zero and never reads
-    env(safe-area-inset-*), so `SafeArea` is a no-op on web. The default
-    (viewport-fit=contain) is what keeps the layout viewport inside the
-    iPhone's safe area; switching to cover would extend the canvas under the
-    Dynamic Island and home indicator with nothing to inset against it. Revisit
-    only once the app plumbs real insets into MediaQuery.
+    Still NOT viewport-fit=cover here, but the reason has changed. The
+    original note said to revisit "once the app plumbs real insets into
+    MediaQuery" — lib/core/platform/display_insets_web.dart now does exactly
+    that, and it is what turns cover on, from Dart, after the engine has
+    installed its own tag.
+
+    It stays off in this file on purpose. Cover is only safe while insets are
+    actually being measured, so the flag and the measurement have to be
+    switched on by the same code: display_insets_web.dart adds cover, probes
+    env(safe-area-inset-*), and puts this exact content string back if the
+    probe comes up empty. Hard-coding cover here would make the page
+    edge-to-edge from the first byte with no such fallback.
   -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
@@ -46,9 +51,20 @@
   <meta name="mobile-web-app-capable" content="yes">
   <!--
     "black" gives a black status-bar band with white glyphs, which reads as
-    continuous with the #0D1815 ground. NOT "black-translucent": that draws the
-    app under the Dynamic Island, and with viewPadding pinned to zero on web
-    the app has no way to inset its headers out from under it.
+    continuous with the #0D1815 ground. NOT "black-translucent": that draws
+    the app under the Dynamic Island.
+
+    Load-bearing, and not merely cosmetic: because the web view starts below
+    an opaque status bar, iOS itself keeps content clear of the Island, and
+    env(safe-area-inset-top) is 0 by construction. That is what lets
+    display_insets_web.dart turn on viewport-fit=cover without betting the
+    Island on its own probe — the insets it injects are bottom and side only.
+
+    Do not switch this to black-translucent without a different safety story.
+    iOS reads this value once at launch from the cached home-screen bookmark;
+    JavaScript cannot change or revert it at runtime, so a probe that failed
+    on some future iOS version would leave headers under the Island with no
+    fallback.
   -->
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="Tadabbur">

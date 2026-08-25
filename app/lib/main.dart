@@ -3,6 +3,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
+import 'core/platform/display_insets.dart';
 import 'core/services/supabase_service.dart';
 import 'core/startup/startup_failure_app.dart';
 
@@ -17,15 +18,25 @@ Future<void> main() async {
 /// no way to retry, which is exactly what a stale refresh token used to
 /// produce (see [initSupabase] on why init is time-bounded).
 Future<void> _start() async {
+  // Kicked off before the network work rather than awaited in front of it:
+  // on web this probes the browser's safe area, and letting that overlap
+  // Supabase init keeps it off the cold-start critical path. It is awaited
+  // before either runApp below, because on web it decides whether the page
+  // is edge-to-edge and the first frame must not be painted before that
+  // question is settled.
+  final displayInsetsReady = initDisplayInsets();
+
   try {
     await dotenv.load(fileName: '.env');
     await initSupabase();
   } catch (error, stackTrace) {
     debugPrint('Startup failed: $error\n$stackTrace');
+    await displayInsetsReady;
     runApp(StartupFailureApp(error: error, onRetry: _retryStart));
     return;
   }
 
+  await displayInsetsReady;
   runApp(const ProviderScope(child: TadabburApp()));
 }
 
