@@ -158,12 +158,18 @@ class PillChip extends StatelessWidget {
                 Icon(icon, size: 16, color: foreground),
                 const SizedBox(width: 6),
               ],
-              Text(
-                label,
-                style: AppTypography.label(
-                  fontSize: 11.5,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                  color: foreground,
+              // Flexible for the same reason as [PillButton]'s label: a
+              // chip carrying a long city or madhab name has no room left
+              // at a large text scale, and a Row clips rather than wraps.
+              // Loose fit, so a label that already fits is unaffected.
+              Flexible(
+                child: Text(
+                  label,
+                  style: AppTypography.label(
+                    fontSize: 11.5,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                    color: foreground,
+                  ),
                 ),
               ),
             ],
