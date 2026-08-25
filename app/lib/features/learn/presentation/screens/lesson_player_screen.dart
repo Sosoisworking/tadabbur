@@ -202,7 +202,16 @@ class _LessonPlayerScreenState extends ConsumerState<LessonPlayerScreen> {
                       if (await _confirmExit() && context.mounted) Navigator.of(context).pop();
                     },
                   ),
-                  Expanded(child: _buildExercise(exercises[_index], exercises)),
+                  Expanded(
+                    // Rebuilds the card subtree from scratch on every
+                    // exercise so its deal-in animation replays — without
+                    // the key, two consecutive exercises of the same type
+                    // reuse one element and the tween stays finished.
+                    child: KeyedSubtree(
+                      key: ValueKey(_index),
+                      child: _buildExercise(exercises[_index], exercises),
+                    ),
+                  ),
                 ],
               );
             },
@@ -213,10 +222,15 @@ class _LessonPlayerScreenState extends ConsumerState<LessonPlayerScreen> {
   }
 
   Widget _buildExercise(LessonExercise exercise, List<LessonExercise> all) {
+    // Every view forwards this to _DeckCardScaffold, which drops the ghost
+    // layers once there's nothing left stacked behind the current card.
+    final isLast = _index == all.length - 1;
+
     switch (exercise) {
       case VocabCardExercise():
         return _VocabCardView(
           exercise: exercise,
+          isLast: isLast,
           onNext: () {
             _exposeToSrs(() => ref.read(srsRepositoryProvider).exposeVocabItem(exercise.vocabItemId));
             _advance(all, graded: false);
@@ -225,6 +239,7 @@ class _LessonPlayerScreenState extends ConsumerState<LessonPlayerScreen> {
       case ReadingPassageExercise():
         return _ReadingPassageView(
           exercise: exercise,
+          isLast: isLast,
           onNext: () {
             // Only single-ayah cards (the line-by-line cards from
             // migration 0039) are their own SRS item — a multi-ayah
@@ -240,6 +255,7 @@ class _LessonPlayerScreenState extends ConsumerState<LessonPlayerScreen> {
       case RecallQuizExercise():
         return _RecallQuizView(
           exercise: exercise,
+          isLast: isLast,
           selectedOption: _selectedQuizOption,
           answered: _quizAnswered,
           onSelect: (optionIndex) => setState(() {
@@ -261,6 +277,7 @@ class _LessonPlayerScreenState extends ConsumerState<LessonPlayerScreen> {
       case LetterCardExercise():
         return _LetterCardView(
           exercise: exercise,
+          isLast: isLast,
           onNext: () {
             _exposeToSrs(() => ref.read(srsRepositoryProvider).exposeLetter(exercise.letterId));
             _advance(all, graded: false);
@@ -269,31 +286,37 @@ class _LessonPlayerScreenState extends ConsumerState<LessonPlayerScreen> {
       case DiacriticIntroExercise():
         return _DiacriticIntroView(
           exercise: exercise,
+          isLast: isLast,
           onNext: () => _advance(all, graded: false),
         );
       case GrammarExplanationExercise():
         return _GrammarExplanationView(
           exercise: exercise,
+          isLast: isLast,
           onNext: () => _advance(all, graded: false),
         );
       case LetterChainExercise():
         return _LetterChainView(
           exercise: exercise,
+          isLast: isLast,
           onNext: () => _advance(all, graded: false),
         );
       case KnowledgeCardExercise():
         return _KnowledgeCardView(
           exercise: exercise,
+          isLast: isLast,
           onNext: () => _advance(all, graded: false),
         );
       case PrayerStepExercise():
         return _PrayerStepView(
           exercise: exercise,
+          isLast: isLast,
           onNext: () => _advance(all, graded: false),
         );
       case UnsupportedExercise():
         return _UnsupportedView(
           exerciseType: exercise.exerciseType,
+          isLast: isLast,
           onSkip: () => _advance(all, graded: false),
         );
     }
@@ -367,11 +390,16 @@ class _DeckHeader extends StatelessWidget {
 /// what's inside. [nextEnabled]/[nextLabel]/[nextColor] let the quiz view
 /// gate and recolor the button after grading; every other view just takes
 /// the defaults.
+///
+/// Two faint ghost layers sit behind the card so the lesson reads as a
+/// deck of exercises still to come rather than a single page — see
+/// [isLast] for the one case that has nothing left to stack.
 class _DeckCardScaffold extends StatelessWidget {
   const _DeckCardScaffold({
     required this.kind,
     required this.child,
     required this.onNext,
+    required this.isLast,
     this.nextEnabled = true,
     this.nextLabel = 'Next',
     this.nextColor,
@@ -379,9 +407,24 @@ class _DeckCardScaffold extends StatelessWidget {
     this.scrollable = true,
   });
 
+  /// The deck's ghost layers, front-most first: how far each is inset from
+  /// the active card's sides, how far below its top edge it starts, and how
+  /// far past its bottom edge it peeks out. Off the 8px grid on purpose —
+  /// the stagger is a perspective cue, not spacing, and each step back is
+  /// narrower and fainter than the one in front of it.
+  static const _ghosts = [
+    (inset: 32.0, top: 24.0, peek: 14.0, fill: 0.05, border: 0.08),
+    (inset: 38.0, top: 30.0, peek: 10.0, fill: 0.03, border: 0.06),
+  ];
+
   final String kind;
   final Widget child;
   final VoidCallback? onNext;
+
+  /// Whether this is the final exercise. The ghosts are a count of what's
+  /// still behind the current card, so the last one shows none.
+  final bool isLast;
+
   final bool nextEnabled;
   final String nextLabel;
   final Color? nextColor;
@@ -405,36 +448,88 @@ class _DeckCardScaffold extends StatelessWidget {
               AppSpacing.screenInset,
               0,
             ),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.xxl),
-              decoration: BoxDecoration(
-                color: AppColors.bgSurface,
-                borderRadius: BorderRadius.circular(AppRadius.card),
-                border: Border.all(color: AppColors.borderSubtle),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  StatusPill(label: kind, foreground: AppColors.brandAccent),
-                  Expanded(
-                    child: scrollable
-                        ? LayoutBuilder(
-                            builder: (context, constraints) => SingleChildScrollView(
-                              child: ConstrainedBox(
-                                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: crossAxisAlignment,
-                                  children: [child],
-                                ),
-                              ),
-                            ),
-                          )
-                        : child,
+            child: Stack(
+              // The ghosts hang past the card's bottom edge, into the gap
+              // above the Next pill — that overhang is the whole effect.
+              clipBehavior: Clip.none,
+              // Hands the active card exactly the constraints it had
+              // before the Stack existed, so a scrollable: false child
+              // still gets a bounded height to hand its grid. Nothing here
+              // pins a height: at large text scale the card grows with the
+              // content rather than clipping it, and only the ghosts —
+              // pure decoration, no text — are fixed-size.
+              fit: StackFit.passthrough,
+              children: [
+                if (!isLast)
+                  for (final ghost in _ghosts.reversed)
+                    Positioned(
+                      left: ghost.inset,
+                      right: ghost.inset,
+                      top: ghost.top,
+                      bottom: -ghost.peek,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: AppColors.fillSubtle.withValues(alpha: ghost.fill),
+                          borderRadius: BorderRadius.circular(AppRadius.card),
+                          border: Border.all(color: AppColors.borderSubtle.withValues(alpha: ghost.border)),
+                        ),
+                      ),
+                    ),
+                // Deals the card in rather than swapping it: a cut that
+                // only changes the text reads as the same card being
+                // rewritten, which is exactly the wrong impression when
+                // the deck behind it just got one shorter. Replays per
+                // exercise via the ValueKey in the parent's build().
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: 1),
+                  duration: const Duration(milliseconds: 340),
+                  curve: Curves.ease,
+                  builder: (context, t, child) => Opacity(
+                    opacity: t,
+                    child: Transform.translate(offset: Offset(0, (1 - t) * AppSpacing.md), child: child),
                   ),
-                ],
-              ),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.xxl),
+                    decoration: BoxDecoration(
+                      color: AppColors.bgSurface,
+                      borderRadius: BorderRadius.circular(AppRadius.card),
+                      border: Border.all(color: AppColors.borderSubtle),
+                      // Separates the card from the ghosts, which share its
+                      // radius and would otherwise read as one flat shape.
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.4),
+                          blurRadius: 44,
+                          offset: const Offset(0, 20),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        StatusPill(label: kind, foreground: AppColors.brandAccent),
+                        Expanded(
+                          child: scrollable
+                              ? LayoutBuilder(
+                                  builder: (context, constraints) => SingleChildScrollView(
+                                    child: ConstrainedBox(
+                                      constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        crossAxisAlignment: crossAxisAlignment,
+                                        children: [child],
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : child,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -480,16 +575,18 @@ class _DeckCardScaffold extends StatelessWidget {
 }
 
 class _DiacriticIntroView extends StatelessWidget {
-  const _DiacriticIntroView({required this.exercise, required this.onNext});
+  const _DiacriticIntroView({required this.exercise, required this.onNext, required this.isLast});
 
   final DiacriticIntroExercise exercise;
   final VoidCallback onNext;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
     return _DeckCardScaffold(
       kind: 'DIACRITIC',
       onNext: onNext,
+      isLast: isLast,
       // The grid scrolls itself and wants the full remaining height.
       scrollable: false,
       child: Column(
@@ -553,16 +650,18 @@ class _DiacriticIntroView extends StatelessWidget {
 }
 
 class _LetterCardView extends StatelessWidget {
-  const _LetterCardView({required this.exercise, required this.onNext});
+  const _LetterCardView({required this.exercise, required this.onNext, required this.isLast});
 
   final LetterCardExercise exercise;
   final VoidCallback onNext;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
     return _DeckCardScaffold(
       kind: 'LETTER',
       onNext: onNext,
+      isLast: isLast,
       child: Column(
         children: [
           Text(
@@ -649,16 +748,18 @@ class _PositionalFormsRow extends StatelessWidget {
 }
 
 class _VocabCardView extends StatelessWidget {
-  const _VocabCardView({required this.exercise, required this.onNext});
+  const _VocabCardView({required this.exercise, required this.onNext, required this.isLast});
 
   final VocabCardExercise exercise;
   final VoidCallback onNext;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
     return _DeckCardScaffold(
       kind: 'VOCABULARY',
       onNext: onNext,
+      isLast: isLast,
       child: Column(
         children: [
           Text(
@@ -715,16 +816,18 @@ class _MetaPill extends StatelessWidget {
 }
 
 class _ReadingPassageView extends StatelessWidget {
-  const _ReadingPassageView({required this.exercise, required this.onNext});
+  const _ReadingPassageView({required this.exercise, required this.onNext, required this.isLast});
 
   final ReadingPassageExercise exercise;
   final VoidCallback onNext;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
     return _DeckCardScaffold(
       kind: 'READING',
       onNext: onNext,
+      isLast: isLast,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -775,6 +878,7 @@ class _RecallQuizView extends StatelessWidget {
     required this.answered,
     required this.onSelect,
     required this.onNext,
+    required this.isLast,
   });
 
   final RecallQuizExercise exercise;
@@ -782,6 +886,7 @@ class _RecallQuizView extends StatelessWidget {
   final bool answered;
   final ValueChanged<int> onSelect;
   final VoidCallback onNext;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
@@ -790,6 +895,7 @@ class _RecallQuizView extends StatelessWidget {
     return _DeckCardScaffold(
       kind: 'QUIZ',
       onNext: onNext,
+      isLast: isLast,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       nextEnabled: answered,
       nextLabel: !answered ? 'Next' : (isCorrect ? 'Correct — Next' : 'Not quite — Next'),
@@ -861,16 +967,18 @@ class _QuizOptionButton extends StatelessWidget {
 }
 
 class _GrammarExplanationView extends StatelessWidget {
-  const _GrammarExplanationView({required this.exercise, required this.onNext});
+  const _GrammarExplanationView({required this.exercise, required this.onNext, required this.isLast});
 
   final GrammarExplanationExercise exercise;
   final VoidCallback onNext;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
     return _DeckCardScaffold(
       kind: 'GRAMMAR',
       onNext: onNext,
+      isLast: isLast,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -923,10 +1031,11 @@ class _GrammarExplanationView extends StatelessWidget {
 /// both from the same plain characters, so nothing here needs its own
 /// stored "isolated form" data (see LetterChainExercise's doc comment).
 class _LetterChainView extends StatelessWidget {
-  const _LetterChainView({required this.exercise, required this.onNext});
+  const _LetterChainView({required this.exercise, required this.onNext, required this.isLast});
 
   final LetterChainExercise exercise;
   final VoidCallback onNext;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
@@ -935,6 +1044,7 @@ class _LetterChainView extends StatelessWidget {
     return _DeckCardScaffold(
       kind: 'LETTER CHAIN',
       onNext: onNext,
+      isLast: isLast,
       child: Column(
         children: [
           Text(
@@ -976,16 +1086,18 @@ class _LetterChainView extends StatelessWidget {
 /// doc comment on why this is a separate type rather than reusing
 /// grammar_explanation).
 class _KnowledgeCardView extends StatelessWidget {
-  const _KnowledgeCardView({required this.exercise, required this.onNext});
+  const _KnowledgeCardView({required this.exercise, required this.onNext, required this.isLast});
 
   final KnowledgeCardExercise exercise;
   final VoidCallback onNext;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
     return _DeckCardScaffold(
       kind: 'KNOWLEDGE',
       onNext: onNext,
+      isLast: isLast,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1018,16 +1130,18 @@ class _KnowledgeCardView extends StatelessWidget {
 /// repeat it. The Arabic card only renders when there's actually
 /// something to say (most Wudu steps are pure action).
 class _PrayerStepView extends StatelessWidget {
-  const _PrayerStepView({required this.exercise, required this.onNext});
+  const _PrayerStepView({required this.exercise, required this.onNext, required this.isLast});
 
   final PrayerStepExercise exercise;
   final VoidCallback onNext;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
     return _DeckCardScaffold(
       kind: 'STEP ${exercise.sequenceOrder}',
       onNext: onNext,
+      isLast: isLast,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1089,16 +1203,18 @@ class _PrayerStepView extends StatelessWidget {
 }
 
 class _UnsupportedView extends StatelessWidget {
-  const _UnsupportedView({required this.exerciseType, required this.onSkip});
+  const _UnsupportedView({required this.exerciseType, required this.onSkip, required this.isLast});
 
   final String exerciseType;
   final VoidCallback onSkip;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
     return _DeckCardScaffold(
       kind: 'COMING SOON',
       onNext: onSkip,
+      isLast: isLast,
       nextLabel: 'Skip',
       child: Text(
         '"$exerciseType" exercises aren\'t built in the app yet.',
