@@ -1,23 +1,29 @@
 {
-    "name": "Tadabbur",
+    "name": "Tadabbur — Qur'anic Arabic",
     "short_name": "Tadabbur",
-    "start_url": ".",
+    "start_url": "./",
+    "scope": "./",
     "display": "standalone",
-    "background_color": "#1B5E4A",
-    "theme_color": "#1B5E4A",
-    "description": "AI-first Quranic Arabic learning app",
+    "background_color": "#0D1815",
+    "theme_color": "#0D1815",
+    "description": "Learn to read and understand Qur'anic Arabic — guided lessons, spaced review, and daily prayer times.",
     "orientation": "portrait-primary",
+    "lang": "en",
+    "dir": "ltr",
+    "categories": ["education", "books", "lifestyle"],
     "prefer_related_applications": false,
     "icons": [
         {
             "src": "icons/Icon-192.png",
             "sizes": "192x192",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "any"
         },
         {
             "src": "icons/Icon-512.png",
             "sizes": "512x512",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "any"
         },
         {
             "src": "icons/Icon-maskable-192.png",

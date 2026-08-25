@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <!--
     If you are serving your web app in a path other than the root, change the
@@ -8,9 +8,6 @@
     The path provided below has to start and end with a slash "/" in order for
     it to work correctly.
 
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
     This is a placeholder for base href that will be replaced by the value of
     the `--base-href` argument provided to `flutter build`.
   -->
@@ -18,30 +15,137 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="AI-first Quranic Arabic learning app">
-  <meta name="theme-color" content="#1B5E4A">
 
-  <!-- iOS meta tags & icons -->
+  <!--
+    Flutter's engine deletes any <meta name="viewport"> it finds and installs
+    its own (width=device-width, initial-scale=1, maximum-scale=1,
+    user-scalable=no) the moment it boots. This tag therefore only governs the
+    pre-boot window — but that window matters: without it mobile Safari lays
+    the boot screen out at its ~980px default and then reflows when Flutter
+    swaps the tag in. The content below is byte-for-byte what the engine
+    installs, so the swap is a no-op and nothing moves.
+
+    Deliberately NOT viewport-fit=cover. Flutter Web hard-codes
+    ViewConfiguration.viewPadding to zero and never reads
+    env(safe-area-inset-*), so `SafeArea` is a no-op on web. The default
+    (viewport-fit=contain) is what keeps the layout viewport inside the
+    iPhone's safe area; switching to cover would extend the canvas under the
+    Dynamic Island and home indicator with nothing to inset against it. Revisit
+    only once the app plumbs real insets into MediaQuery.
+  -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+  <meta name="description" content="Learn to read and understand Qur'anic Arabic — guided lessons, spaced review, and daily prayer times.">
+  <meta name="color-scheme" content="dark">
+  <!-- Matches AppColors.bgBase so the browser chrome never flashes light. -->
+  <meta name="theme-color" content="#0D1815">
+
+  <!-- iOS home-screen behaviour. iOS ignores most of manifest.json, so these
+       are what actually decide how the installed app looks and launches. -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
+  <!--
+    "black" gives a black status-bar band with white glyphs, which reads as
+    continuous with the #0D1815 ground. NOT "black-translucent": that draws the
+    app under the Dynamic Island, and with viewPadding pinned to zero on web
+    the app has no way to inset its headers out from under it.
+  -->
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="Tadabbur">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <meta name="application-name" content="Tadabbur">
+  <link rel="apple-touch-icon" sizes="192x192" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>Tadabbur</title>
+  <title>Tadabbur — Qur'anic Arabic</title>
   <link rel="manifest" href="manifest.json">
+
+  <style>
+    /*
+      Painted before a single byte of Flutter loads. Without it the launch is a
+      white page for as long as CanvasKit takes to download — the most visible
+      defect on a cold home-screen open.
+    */
+    html, body {
+      margin: 0;
+      padding: 0;
+      background-color: #0D1815;
+    }
+
+    #boot {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #0D1815;
+      transition: opacity 260ms ease-out;
+    }
+
+    #boot.is-ready { opacity: 0; }
+
+    #boot svg {
+      width: 84px;
+      height: 84px;
+      animation: boot-pulse 1.6s ease-in-out infinite;
+    }
+
+    @keyframes boot-pulse {
+      0%, 100% { opacity: 0.35; }
+      50%      { opacity: 0.9; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #boot svg { animation: none; opacity: 0.7; }
+    }
+  </style>
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
+  <!-- Boot screen: the branded mark on the app's own ground, so the gap
+       between tap and first frame looks intentional instead of broken.
+       Removed as soon as Flutter attaches its <flutter-view>. -->
+  <div id="boot" aria-hidden="true">
+    <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" fill="#3FA37E">
+      <path d="M244,98 L244,414 C205,330 150,215 132,98 Z"/>
+      <path d="M268,98 L268,414 C307,330 362,215 380,98 Z"/>
+    </svg>
+  </div>
 
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
+  <script>
+    // Flutter appends <flutter-view> to <body> when the engine attaches, which
+    // is the earliest reliable "we are painting now" signal available without
+    // hand-rolling a custom bootstrap. Polled on rAF rather than via :has() so
+    // this does not depend on selector support, and hard-capped so a failed
+    // boot still falls through to the Dart-side startup failure screen rather
+    // than leaving the user staring at the mark forever.
+    (function () {
+      var boot = document.getElementById('boot');
+      if (!boot) return;
+
+      var started = Date.now();
+
+      function dismiss() {
+        boot.classList.add('is-ready');
+        setTimeout(function () {
+          if (boot.parentNode) boot.parentNode.removeChild(boot);
+        }, 300);
+      }
+
+      function tick() {
+        if (document.querySelector('flutter-view')) {
+          dismiss();
+        } else if (Date.now() - started > 30000) {
+          dismiss();
+        } else {
+          requestAnimationFrame(tick);
+        }
+      }
+
+      requestAnimationFrame(tick);
+    })();
+  </script>
+
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
