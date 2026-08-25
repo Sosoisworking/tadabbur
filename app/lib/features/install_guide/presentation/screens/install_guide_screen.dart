@@ -56,11 +56,11 @@ class _InstallGuideScreenState extends State<InstallGuideScreen> {
       body: SafeArea(
         bottom: false,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(
+          padding: EdgeInsets.fromLTRB(
             AppSpacing.screenInset,
             AppSpacing.md,
             AppSpacing.screenInset,
-            AppSpacing.navOverlayInset,
+            AppSpacing.navOverlayInsetOf(context),
           ),
           children: [
             const ScreenHeader(

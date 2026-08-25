@@ -62,11 +62,11 @@ class UnitDetailScreen extends ConsumerWidget {
                   child: _UnitHeader(title: title, unit: unit),
                 ),
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(
+                  padding: EdgeInsets.fromLTRB(
                     AppSpacing.screenInset,
                     AppSpacing.xxl,
                     AppSpacing.screenInset,
-                    AppSpacing.navOverlayInset,
+                    AppSpacing.navOverlayInsetOf(context),
                   ),
                   sliver: SliverList.separated(
                     itemCount: lessons.length,

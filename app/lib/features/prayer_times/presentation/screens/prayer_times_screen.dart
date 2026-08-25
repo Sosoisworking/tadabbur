@@ -92,11 +92,11 @@ class _PrayerTimesScreenState extends ConsumerState<PrayerTimesScreen> {
               onRefresh: () => ref.refresh(activePrayerLocationProvider.future),
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(
+                padding: EdgeInsets.fromLTRB(
                   AppSpacing.screenInset,
                   AppSpacing.md,
                   AppSpacing.screenInset,
-                  AppSpacing.navOverlayInset,
+                  AppSpacing.navOverlayInsetOf(context),
                 ),
                 children: [
                   ScreenHeader(

@@ -24,8 +24,10 @@ import '../../features/review/data/srs_repository.dart';
 ///
 /// The bar is a floating blurred pill *over* the content rather than a
 /// Material [NavigationBar] docked to the bottom edge. Screens therefore
-/// have to pad their own scrollables by [AppSpacing.navOverlayInset] —
-/// the pill reserves no layout space.
+/// have to pad their own scrollables by [AppSpacing.navOverlayInsetOf] —
+/// the pill reserves no layout space. That helper and the pill's own
+/// position below are both derived from [AppSpacing.navPillInset], so the
+/// two stay in step on hardware with a home indicator.
 class AppShell extends ConsumerWidget {
   const AppShell({super.key, required this.navigationShell});
 
@@ -39,14 +41,30 @@ class AppShell extends ConsumerWidget {
     // badge" rather than surfacing shell-level error UI.
     final dueCount = ref.watch(dueSrsItemsProvider).valueOrNull?.length ?? 0;
 
+    // The pill floats over the content with nothing between it and the
+    // window edge, so it is the one piece of chrome that has to apply the
+    // display's insets itself — every screen below it is already wrapped
+    // in a SafeArea. Horizontally that means the landscape notch/camera
+    // cutout (viewPadding.left/right, non-zero only in landscape on a
+    // notched device); vertically the home indicator, via
+    // AppSpacing.navPillInset.
+    final viewPadding = MediaQuery.viewPaddingOf(context);
+
     return Scaffold(
+      // The shell owns no content of its own — each branch screen is its
+      // own Scaffold and does its own keyboard avoidance. Letting this one
+      // resize too would inset the keyboard's height twice, and would
+      // measure the pill's `bottom` from the top of the keyboard rather
+      // than from the bottom of the window, which is the frame
+      // AppSpacing.navPillInset's viewPadding reading assumes.
+      resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
           navigationShell,
           Positioned(
-            left: 20,
-            right: 20,
-            bottom: 22,
+            left: AppSpacing.navPillSideGap + viewPadding.left,
+            right: AppSpacing.navPillSideGap + viewPadding.right,
+            bottom: AppSpacing.navPillInset(context),
             child: _FloatingNavBar(
               currentIndex: navigationShell.currentIndex,
               dueCount: dueCount,
@@ -94,7 +112,7 @@ class _FloatingNavBar extends StatelessWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: Container(
-          height: 70,
+          height: AppSpacing.navPillHeight,
           padding: const EdgeInsets.symmetric(horizontal: 6),
           decoration: BoxDecoration(
             color: AppColors.bgGlass,

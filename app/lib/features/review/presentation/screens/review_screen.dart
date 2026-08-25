@@ -56,11 +56,11 @@ class ReviewScreen extends ConsumerWidget {
                 SliverFillRemaining(
                   hasScrollBody: false,
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(
+                    padding: EdgeInsets.fromLTRB(
                       AppSpacing.screenInset,
                       0,
                       AppSpacing.screenInset,
-                      AppSpacing.navOverlayInset,
+                      AppSpacing.navOverlayInsetOf(context),
                     ),
                     child: items.isEmpty ? const _AllCaughtUp() : _DueQueue(items: items),
                   ),

@@ -223,11 +223,11 @@ class _LearnBodyState extends ConsumerState<_LearnBody> {
             ),
           ),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(
+            padding: EdgeInsets.fromLTRB(
               AppSpacing.screenInset,
               0,
               AppSpacing.screenInset,
-              AppSpacing.navOverlayInset,
+              AppSpacing.navOverlayInsetOf(context),
             ),
             sliver: SliverToBoxAdapter(
               child: _LessonsSection(unit: selectedUnit),
