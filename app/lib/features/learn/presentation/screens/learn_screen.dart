@@ -164,7 +164,7 @@ class _LearnBodyState extends ConsumerState<_LearnBody> {
             ),
             sliver: SliverToBoxAdapter(
               child: ScreenHeader(
-                eyebrow: hijriToday(),
+                eyebrow: hijriToday(dayOffset: ref.watch(hijriDayOffsetProvider)),
                 title: 'Keep going,',
                 emphasis: selectedUnit.title,
                 trailing: _StreakRing(days: streakAsync.valueOrNull),

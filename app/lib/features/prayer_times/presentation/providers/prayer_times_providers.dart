@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/location_repository.dart';
 import '../../domain/manual_city.dart';
+import '../../domain/prayer_calculation_settings.dart';
 
 /// The user's chosen location override — null means "use device GPS".
 /// Backed by [PrayerLocationStore] so the choice survives app restarts.
@@ -83,15 +84,18 @@ final activePrayerLocationProvider = FutureProvider<ActivePrayerLocation>((ref) 
   }
 });
 
-/// Muslim World League + Shafi madhab — the most globally common default
-/// pairing. Not user-configurable yet; a settings screen to change method/
-/// madhab is a natural follow-up once this tab ships.
+/// Not user-configurable yet, but exposed as a provider so a settings screen
+/// only has to override this one seam — every calculation follows from it.
+final prayerCalculationSettingsProvider = Provider<PrayerCalculationSettings>(
+  (ref) => defaultPrayerCalculationSettings,
+);
+
 final prayerTimesProvider = FutureProvider<PrayerTimes>((ref) async {
   final location = await ref.watch(activePrayerLocationProvider.future);
-  final params = CalculationMethodParameters.muslimWorldLeague()..madhab = Madhab.shafi;
+  final settings = ref.watch(prayerCalculationSettingsProvider);
   return PrayerTimes(
     date: DateTime.now(),
     coordinates: location.coordinates,
-    calculationParameters: params,
+    calculationParameters: settings.resolve(),
   );
 });
