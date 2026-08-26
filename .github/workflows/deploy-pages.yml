@@ -1,0 +1,117 @@
+name: Deploy PWA to GitHub Pages
+
+# The app is distributed as a website added to the iPhone home screen, not
+# through the App Store (see install_guide_screen.dart), so this workflow
+# *is* the release process.
+#
+# Runs on a push to main, and on demand from any branch — so a branch can be
+# put on a real phone before it merges.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Pages needs these; `contents: read` is deliberately the only repo scope.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two deploys race. `cancel-in-progress: false` because a
+# half-finished deploy is worse than a slightly stale one — the service
+# worker precaches a file list atomically and a torn upload would fail
+# every install.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      # .env is a *build-time* asset, not runtime config: pubspec declares it
+      # under `assets:`, so its contents are compiled into the bundle. That
+      # means the values below ship inside the published site and are
+      # readable by anyone. That is expected for these two — the Supabase
+      # publishable key is designed to be public and row-level security is
+      # what actually protects the data — but it is why nothing else may
+      # ever be added to this file.
+      - name: Write .env from secrets
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_PUBLISHABLE_KEY" ]; then
+            echo "::error::Missing repository secrets SUPABASE_URL and/or SUPABASE_PUBLISHABLE_KEY."
+            echo "Add them under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          printf 'SUPABASE_URL=%s\nSUPABASE_PUBLISHABLE_KEY=%s\n' \
+            "$SUPABASE_URL" "$SUPABASE_PUBLISHABLE_KEY" > .env
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+      # --base-href: a project Pages site is served from /<repo>/, not /, and
+      # every URL in the app (service worker, manifest scope, assets) is
+      # relative so they all follow from this one value.
+      #
+      # --no-web-resources-cdn: keeps CanvasKit on this origin. Without it the
+      # renderer is fetched from Google's CDN, which discloses every visitor's
+      # IP to Google and makes offline impossible, since a service worker
+      # cannot cache a cross-origin URL.
+      - name: Build
+        run: |
+          flutter build web --release \
+            --no-web-resources-cdn \
+            --base-href "/${GITHUB_REPOSITORY#*/}/"
+
+      # The service worker precaches a fixed list and its install is atomic:
+      # one missing file and the app silently stops working offline while the
+      # Install screen still promises that it does. Cheap to check here.
+      - name: Verify the build is deployable
+        run: |
+          grep -q '"useLocalCanvasKit":true' build/web/flutter_bootstrap.js \
+            || { echo "::error::CanvasKit would load from a CDN"; exit 1; }
+          test -f build/web/sw.js || { echo "::error::sw.js missing"; exit 1; }
+          grep -q '{{' build/web/index.html \
+            && { echo "::error::unsubstituted template placeholder in index.html"; exit 1; } || true
+          node -e "
+            const fs=require('fs');
+            const sw=fs.readFileSync('build/web/sw.js','utf8');
+            const body=sw.match(/const SHELL_CORE = \[([\s\S]*?)\n\];/)[1];
+            const list=body.split('\n').map(l=>l.trim())
+              .filter(l=>l.startsWith(\"'\")).map(l=>l.match(/'([^']+)'/)[1]);
+            const missing=list.filter(e=>!fs.existsSync('build/web/'+(e==='.'?'index.html':e)));
+            if(missing.length){console.error('::error::precache entries missing from build: '+missing.join(', '));process.exit(1);}
+            console.log(list.length+' precache entries verified');
+          "
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: app/build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
