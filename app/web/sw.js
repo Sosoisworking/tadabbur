@@ -79,12 +79,7 @@ const BUILD = new URL(self.location.href).searchParams.get('v') || 'unversioned'
 const SHELL_CACHE = `tadabbur-shell-${BUILD}`;
 const RUNTIME_CACHE = `tadabbur-runtime-${BUILD}`;
 
-/// Fonts are content-addressed by Google's CDN and immutable, so they are kept
-/// in a cache that intentionally survives a build. Re-downloading ~1MB of
-/// identical font binaries on every deploy would be pure waste.
-const FONT_CACHE = 'tadabbur-fonts-v1';
-
-const KEEP = new Set([SHELL_CACHE, RUNTIME_CACHE, FONT_CACHE]);
+const KEEP = new Set([SHELL_CACHE, RUNTIME_CACHE]);
 
 /// Only caches we own are ever deleted; another app on the same origin must not
 /// be collateral damage.
@@ -121,6 +116,21 @@ const SHELL_CORE = [
   'assets/FontManifest.json',
   'assets/fonts/MaterialIcons-Regular.otf',
   'assets/packages/cupertino_icons/assets/CupertinoIcons.ttf',
+  // The three bundled families. Nested under assets/assets/ because that is
+  // where Flutter puts an asset declared as `assets/fonts/…` in pubspec.
+  //
+  // Amiri Quran is the one entry here that is not cosmetic: without it an
+  // offline launch renders Qur'anic Arabic in whatever system face the
+  // device picks, and a substitute cannot position Tashkeel — which is the
+  // entire reason these were bundled rather than fetched.
+  'assets/assets/fonts/AmiriQuran-Regular.ttf',
+  'assets/assets/fonts/Lora-Regular.ttf',
+  'assets/assets/fonts/Lora-Medium.ttf',
+  'assets/assets/fonts/Lora-Italic.ttf',
+  'assets/assets/fonts/WorkSans-Regular.ttf',
+  'assets/assets/fonts/WorkSans-Medium.ttf',
+  'assets/assets/fonts/WorkSans-SemiBold.ttf',
+  'assets/assets/fonts/WorkSans-Bold.ttf',
   'assets/shaders/ink_sparkle.frag',
   'assets/shaders/stretch_effect.frag',
 ];
@@ -173,13 +183,6 @@ const SUPABASE_HOST = /(^|\.)supabase\.(co|in|net)$/i;
 /// proxied under this origin is excluded too.
 const SUPABASE_PATH = /\/(rest|auth|realtime|storage|functions|graphql)\/v\d+\//i;
 
-/// The only cross-origin hosts this worker will touch. google_fonts fetches
-/// Work Sans / Lora / Amiri Quran at runtime (see app_typography.dart), so
-/// without these the offline app renders in fallback typefaces.
-const FONT_ORIGINS = new Set([
-  'https://fonts.googleapis.com',
-  'https://fonts.gstatic.com',
-]);
 
 /// How long a launch will wait on the network for the navigation document (and
 /// for `.env`) before falling back to the cached copy. Short enough that a dead
@@ -339,13 +342,11 @@ self.addEventListener('fetch', (event) => {
   // Supabase: never cached, never intercepted.
   if (isSupabase(url)) return;
 
-  if (url.origin !== self.location.origin) {
-    if (FONT_ORIGINS.has(url.origin)) {
-      event.respondWith(cacheFirstImmutable(event, request));
-    }
-    // Every other cross-origin request is left entirely alone.
-    return;
-  }
+  // Every cross-origin request is left entirely alone. The app has no
+  // cross-origin dependencies left: the type families are bundled assets and
+  // CanvasKit is served from this origin, which is what makes offline
+  // possible at all — a service worker cannot cache a cross-origin URL.
+  if (url.origin !== self.location.origin) return;
 
   // The navigation document carries the build token, so it must stay fresh.
   // Any SPA route falls back to the cached shell document, which is what makes
@@ -408,31 +409,6 @@ async function cacheFirstShell(event, request) {
     return response;
   } catch (_) {
     return offlineResponse();
-  }
-}
-
-/// Cache-first with no revalidation, for URLs whose contents are immutable
-/// (Google's font CDN). Kept out of the versioned caches on purpose.
-async function cacheFirstImmutable(event, request) {
-  const cache = await caches.open(FONT_CACHE);
-  const hit = await cache.match(request);
-  if (hit) return hit;
-
-  try {
-    const response = await fetch(request);
-    if (response && (response.ok || response.type === 'opaque')) {
-      const copy = response.clone();
-      event.waitUntil(
-        cache.put(request, copy).catch(() => {
-          /* opaque/partial responses some browsers refuse to store */
-        }),
-      );
-    }
-    return response;
-  } catch (error) {
-    // Offline with no cached font: let Flutter fall back to a system typeface
-    // rather than failing the whole text run.
-    throw error;
   }
 }
 
