@@ -20,8 +20,11 @@ class TadabburApp extends ConsumerWidget {
       // date/number formatting only, not a bilingual UI toggle in v1.
       routerConfig: router,
       // Web only: hands SafeArea and MediaQuery.viewPaddingOf the real
-      // env(safe-area-inset-*) values, which the web engine otherwise pins
-      // to zero. No-op on native and on any page with no safe area.
+      // env(safe-area-inset-*) values, which the web engine otherwise pins to
+      // zero, and tops up MediaQuery.viewInsets with a visualViewport
+      // measurement of the on-screen keyboard for the cases the engine's own
+      // keyboard tracking does not catch. No-op on native, and on any page
+      // with no safe area and no keyboard.
       builder: (context, child) =>
           DisplayInsets(child: child ?? const SizedBox.shrink()),
     );
