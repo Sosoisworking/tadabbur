@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import 'app_colors.dart';
 
@@ -15,8 +14,33 @@ import 'app_colors.dart';
 ///   Quranic typesetting, always at [arabicMinFontSize] or larger
 ///   regardless of the user's text-scale setting, since Tashkeel is
 ///   illegible below that.
+///
+/// All three are bundled as local assets and declared in pubspec.yaml, so
+/// nothing here touches the network: first paint never waits on a font
+/// download, and an offline launch still renders Arabic in Amiri Quran
+/// rather than a system face that cannot position the marks.
+///
+/// The three constants below are the only place a family is spelled out,
+/// and each must match its `family:` key in pubspec.yaml character for
+/// character. A mismatch does not throw — Flutter silently substitutes the
+/// platform font — so any edit to a family name has to be made in both
+/// files at once, and checked against the generated FontManifest.json
+/// rather than by eye.
 class AppTypography {
   AppTypography._();
+
+  /// The English UI serif, matching `family: Lora` in pubspec.yaml.
+  /// Bundled at w400, w500, and w400 italic.
+  static const String _serifFamily = 'Lora';
+
+  /// The sans used for numerals and micro-labels, matching
+  /// `family: Work Sans` in pubspec.yaml. Bundled at w400, w500, w600,
+  /// and w700 — every weight a call site asks for, and no others.
+  static const String _sansFamily = 'Work Sans';
+
+  /// The Quranic Arabic face, matching `family: Amiri Quran` in
+  /// pubspec.yaml. Single weight, carrying both Arabic and Latin.
+  static const String _arabicFamily = 'Amiri Quran';
 
   static const double arabicMinFontSize = 24;
 
@@ -41,7 +65,14 @@ class AppTypography {
   static const double arabicSmall = 32;
 
   static TextTheme textTheme() {
-    final serif = GoogleFonts.loraTextTheme();
+    // Same base google_fonts' loraTextTheme() used, minus the fetch: it
+    // defaulted to ThemeData.light().textTheme and rewrote the family on
+    // every style. That base carries colours only — sizes, weights and
+    // tracking arrive later, when MaterialApp localizes the theme against
+    // Material's text geometry. So the styles this method leaves alone
+    // (titleMedium, titleSmall, …) end up as Lora at w500, which is why
+    // Lora is bundled at w500 and not only w400.
+    final serif = ThemeData.light().textTheme.apply(fontFamily: _serifFamily);
     return serif.copyWith(
       displayLarge: display(fontSize: 38),
       displayMedium: display(fontSize: 34),
@@ -64,7 +95,8 @@ class AppTypography {
   /// tracking. Pair with [emphasis] for the italic coloured clause that
   /// most screen titles carry.
   static TextStyle display({double fontSize = 30, Color? color}) {
-    return GoogleFonts.lora(
+    return TextStyle(
+      fontFamily: _serifFamily,
       fontSize: fontSize,
       height: 1.16,
       letterSpacing: -0.3,
@@ -76,13 +108,18 @@ class AppTypography {
   /// *Connecting Letters*"). Inherits size from the surrounding display
   /// style, so only the varying parts are set here.
   static TextStyle emphasis(Color color) {
-    return GoogleFonts.lora(fontStyle: FontStyle.italic, color: color);
+    return TextStyle(
+      fontFamily: _serifFamily,
+      fontStyle: FontStyle.italic,
+      color: color,
+    );
   }
 
   /// Uppercase tracked-out kicker above a screen title. Callers pass
   /// already-cased text; this only sets the tracking and weight.
   static TextStyle eyebrow({Color? color}) {
-    return GoogleFonts.workSans(
+    return TextStyle(
+      fontFamily: _sansFamily,
       fontSize: 11,
       fontWeight: FontWeight.w600,
       letterSpacing: 1.5,
@@ -98,7 +135,8 @@ class AppTypography {
     FontWeight fontWeight = FontWeight.w500,
     Color? color,
   }) {
-    return GoogleFonts.workSans(
+    return TextStyle(
+      fontFamily: _sansFamily,
       fontSize: fontSize,
       fontWeight: fontWeight,
       color: color ?? AppColors.textSecondary,
@@ -112,7 +150,8 @@ class AppTypography {
     FontWeight fontWeight = FontWeight.w600,
     Color? color,
   }) {
-    return GoogleFonts.workSans(
+    return TextStyle(
+      fontFamily: _sansFamily,
       fontSize: fontSize,
       fontWeight: fontWeight,
       height: 1,
@@ -120,8 +159,8 @@ class AppTypography {
     );
   }
 
-  /// Pure floor-clamping logic, kept separate from [arabic] so it's
-  /// testable without touching google_fonts' asset/network-loading path.
+  /// Pure floor-clamping logic, kept separate from [arabic] so it stays
+  /// testable as plain Dart, with no font resolution in the way.
   static double resolveArabicFontSize(double? requested) {
     final size = requested ?? arabicMinFontSize;
     return size < arabicMinFontSize ? arabicMinFontSize : size;
@@ -130,7 +169,8 @@ class AppTypography {
   /// Style for any diacritized Arabic content — always route rendering of
   /// Quranic text through this, never a plain Text() with an ad hoc font.
   static TextStyle arabic({double? fontSize, Color? color, double height = 1.8}) {
-    return GoogleFonts.amiriQuran(
+    return TextStyle(
+      fontFamily: _arabicFamily,
       fontSize: resolveArabicFontSize(fontSize),
       color: color,
       height: height,
@@ -142,6 +182,11 @@ class AppTypography {
   /// floor logic's *intent* (it is never read, only felt) but far above it
   /// anyway.
   static TextStyle glyphMark({required double fontSize, required Color color}) {
-    return GoogleFonts.amiriQuran(fontSize: fontSize, color: color, height: 1);
+    return TextStyle(
+      fontFamily: _arabicFamily,
+      fontSize: fontSize,
+      color: color,
+      height: 1,
+    );
   }
 }
