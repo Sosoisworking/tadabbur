@@ -142,6 +142,11 @@
       var started = Date.now();
 
       function dismiss() {
+        // Read by the service-worker registration below: once this flips, a
+        // session is underway and a pending update must not be applied under
+        // the user's feet. Before it flips there is nothing to lose, so a
+        // handover + reload is invisible behind this very screen.
+        window.__tadabburBooted = true;
         boot.classList.add('is-ready');
         setTimeout(function () {
           if (boot.parentNode) boot.parentNode.removeChild(boot);
@@ -159,6 +164,105 @@
       }
 
       requestAnimationFrame(tick);
+    })();
+  </script>
+
+  <script>
+    // Service-worker registration. This is what makes the Install tab's
+    // "runs full-screen and offline" claim true; web/sw.js has the full
+    // rationale and cache strategy.
+    //
+    // Registered here rather than through flutter.js on purpose: Flutter's
+    // bootstrap-driven registration is deprecated (flutter#156910) and only
+    // ever registers flutter_service_worker.js, which is now a stub that
+    // unregisters itself. web/flutter_bootstrap.js therefore omits
+    // serviceWorkerSettings entirely, leaving this the only registration.
+    (function () {
+      if (!('serviceWorker' in navigator)) return;
+
+      // Substituted by `flutter build web` with a fresh per-build token. This
+      // is the hinge of the update strategy: the token goes into the worker's
+      // script URL, so a new build is a new script URL, which is the one thing
+      // that reliably forces the browser to install a new worker (a
+      // byte-identical sw.js at an unchanged URL never reinstalls, which is
+      // exactly how naive setups pin users to a stale build forever).
+      var BUILD_TOKEN = {{flutter_service_worker_version}};
+
+      // No token means the build was made with --pwa-strategy=none, so cache
+      // names could not vary per build. An unversionable cache is worse than
+      // no cache, so decline to register rather than risk pinning anyone.
+      if (!BUILD_TOKEN) return;
+
+      var SW_URL = 'sw.js?v=' + BUILD_TOKEN;
+      var RELOAD_GUARD = 'tadabbur-sw-handover';
+      var handoverRequested = false;
+
+      // Hand control to a worker that has finished precaching the new build,
+      // then reload onto it. Guarded twice so this can never loop: once per
+      // page via `handoverRequested`, and once per build via sessionStorage.
+      function handOver(worker) {
+        if (handoverRequested) return;
+        try {
+          if (sessionStorage.getItem(RELOAD_GUARD) === String(BUILD_TOKEN)) return;
+          sessionStorage.setItem(RELOAD_GUARD, String(BUILD_TOKEN));
+        } catch (e) {
+          // Private mode with storage disabled: the per-page guard still holds.
+        }
+        // Set only once the handover is really being asked for, so the
+        // controllerchange listener below cannot mistake a worker that
+        // activated on its own for one we requested.
+        handoverRequested = true;
+        worker.postMessage({ type: 'SKIP_WAITING' });
+      }
+
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
+        // Also fires the first time a worker claims an uncontrolled page. That
+        // page is already running the current build, so only reload when the
+        // handover was ours to ask for.
+        if (handoverRequested) window.location.reload();
+      });
+
+      // Registering on `load` keeps the ~10MB precache off the cold-start
+      // critical path, so a first visit paints before it starts downloading
+      // the offline copy.
+      window.addEventListener('load', function () {
+        navigator.serviceWorker
+          .register(SW_URL, { scope: './', updateViaCache: 'none' })
+          .then(function (registration) {
+            // A worker left waiting by a previous session: this is a launch
+            // boundary, nothing is running yet, so take the new build now.
+            if (registration.waiting && navigator.serviceWorker.controller) {
+              handOver(registration.waiting);
+              return;
+            }
+
+            registration.addEventListener('updatefound', function () {
+              var installing = registration.installing;
+              if (!installing) return;
+
+              installing.addEventListener('statechange', function () {
+                if (installing.state !== 'installed') return;
+
+                // First ever install: it activates on its own, and the page is
+                // already running the matching build.
+                if (!navigator.serviceWorker.controller) return;
+
+                // A new build finished precaching while a session is already
+                // underway. Deliberately do NOT swap it in — reloading out from
+                // under someone mid-lesson is worse than one launch of
+                // staleness. It stays waiting and the branch above applies it
+                // at the next launch. If we are still on the boot screen there
+                // is nothing to interrupt, so take it immediately instead.
+                if (window.__tadabburBooted) return;
+                handOver(installing);
+              });
+            });
+          })
+          .catch(function (error) {
+            // Offline support is a bonus, never a launch blocker.
+            console.warn('Service worker registration failed:', error);
+          });
+      });
     })();
   </script>
 
