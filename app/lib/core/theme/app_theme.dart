@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'app_colors.dart';
 import 'app_spacing.dart';
@@ -9,6 +10,29 @@ import 'app_typography.dart';
 /// palette change is [AppColors] plus this file and nothing else.
 class AppTheme {
   AppTheme._();
+
+  /// How the OS should draw the status bar and Android's navigation bar over
+  /// this app.
+  ///
+  /// Applied through an [AnnotatedRegion] at the root (see app.dart) rather
+  /// than through `appBarTheme.systemOverlayStyle`, which only takes effect
+  /// where an `AppBar` is actually rendered — and the redesign has none. On
+  /// [AppColors.bgBase] the platform default draws *dark* status-bar content,
+  /// so without this the clock, battery and signal are near-invisible.
+  ///
+  /// The two brightness fields mean opposite things by platform, which is why
+  /// they look contradictory: iOS reads `statusBarBrightness` as the
+  /// brightness of the background *behind* the bar (dark ⇒ draw light
+  /// content), while Android reads `statusBarIconBrightness` as the wanted
+  /// brightness of the icons themselves.
+  static const SystemUiOverlayStyle overlayStyle = SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarBrightness: Brightness.dark,
+    statusBarIconBrightness: Brightness.light,
+    systemNavigationBarColor: AppColors.bgBase,
+    systemNavigationBarIconBrightness: Brightness.light,
+    systemNavigationBarDividerColor: Colors.transparent,
+  );
 
   static ThemeData dark() {
     // ColorScheme.dark() only fills the handful of roles passed to it —
@@ -42,6 +66,9 @@ class AppTheme {
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
         scrolledUnderElevation: 0,
+        // Belt-and-braces: no screen currently renders an AppBar, but if one
+        // ever does it must not revert the root AnnotatedRegion's style.
+        systemOverlayStyle: overlayStyle,
       ),
       cardTheme: _cardTheme(),
       chipTheme: _chipTheme(),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/platform/display_insets.dart';
@@ -25,8 +26,14 @@ class TadabburApp extends ConsumerWidget {
       // measurement of the on-screen keyboard for the cases the engine's own
       // keyboard tracking does not catch. No-op on native, and on any page
       // with no safe area and no keyboard.
-      builder: (context, child) =>
-          DisplayInsets(child: child ?? const SizedBox.shrink()),
+      // The overlay style has to be annotated onto the tree rather than set
+      // once at startup: a route transition or a modal can reassert the
+      // platform default, and there is no AppBar anywhere in the redesign to
+      // carry it. See AppTheme.overlayStyle for why the default is wrong here.
+      builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
+        value: AppTheme.overlayStyle,
+        child: DisplayInsets(child: child ?? const SizedBox.shrink()),
+      ),
     );
   }
 }
