@@ -4,11 +4,17 @@ name: Deploy PWA to GitHub Pages
 # through the App Store (see install_guide_screen.dart), so this workflow
 # *is* the release process.
 #
-# Runs on a push to main, and on demand from any branch — so a branch can be
-# put on a real phone before it merges.
+# Runs on a push to main, and on the redesign branch so it can be put on a
+# real phone before it merges.
+#
+# workflow_dispatch is listed too, but note it does NOT give you a "Run
+# workflow" button until this file exists on the DEFAULT branch — GitHub only
+# reads dispatch triggers from there. That is why the branch is named
+# explicitly below rather than relying on the manual button; drop it from this
+# list once the redesign merges.
 on:
   push:
-    branches: [main]
+    branches: [main, redesign/dark-first-ui]
   workflow_dispatch:
 
 # Pages needs these; `contents: read` is deliberately the only repo scope.
@@ -33,6 +39,13 @@ jobs:
         working-directory: app
     steps:
       - uses: actions/checkout@v4
+
+      # enablement: true turns Pages on for the repository if it is off, so a
+      # first deploy does not need anyone to visit Settings first. It is a
+      # no-op once Pages is already enabled.
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - uses: subosito/flutter-action@v2
         with:
