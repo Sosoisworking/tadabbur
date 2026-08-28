@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/theme/app_semantic_colors.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../shared/widgets/completion_card.dart';
+import '../../../../shared/widgets/disclosure.dart';
 import '../../../../shared/widgets/mixed_arabic_text.dart';
+import '../../../../shared/widgets/pill.dart';
 import '../../../review/data/srs_repository.dart';
 import '../../data/curriculum_repository.dart';
 import '../../data/lesson_repository.dart';
@@ -157,11 +159,19 @@ class _LessonPlayerScreenState extends ConsumerState<LessonPlayerScreen> {
         }
       },
       child: Scaffold(
-        appBar: AppBar(title: Text(widget.lessonTitle)),
         body: SafeArea(
           child: exercisesAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, _) => Center(child: Text('Could not load this lesson.\n$error', textAlign: TextAlign.center)),
+            error: (error, _) => Center(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.xl),
+                child: Text(
+                  'Could not load this lesson.\n$error',
+                  textAlign: TextAlign.center,
+                  style: AppTypography.label(fontSize: 14),
+                ),
+              ),
+            ),
             data: (exercises) {
               if (_completed) {
                 return CompletionCard(
@@ -173,12 +183,35 @@ class _LessonPlayerScreenState extends ConsumerState<LessonPlayerScreen> {
                   onDone: () => Navigator.of(context).pop(),
                 );
               }
-              if (exercises.isEmpty) return const Center(child: Text('This lesson has no exercises yet.'));
+              if (exercises.isEmpty) {
+                return Center(
+                  child: Text(
+                    'This lesson has no exercises yet.',
+                    style: AppTypography.label(fontSize: 14),
+                  ),
+                );
+              }
 
               return Column(
                 children: [
-                  LinearProgressIndicator(value: (_index + 1) / exercises.length),
-                  Expanded(child: _buildExercise(exercises[_index], exercises)),
+                  _DeckHeader(
+                    total: exercises.length,
+                    index: _index,
+                    lessonTitle: widget.lessonTitle,
+                    onClose: () async {
+                      if (await _confirmExit() && context.mounted) Navigator.of(context).pop();
+                    },
+                  ),
+                  Expanded(
+                    // Rebuilds the card subtree from scratch on every
+                    // exercise so its deal-in animation replays — without
+                    // the key, two consecutive exercises of the same type
+                    // reuse one element and the tween stays finished.
+                    child: KeyedSubtree(
+                      key: ValueKey(_index),
+                      child: _buildExercise(exercises[_index], exercises),
+                    ),
+                  ),
                 ],
               );
             },
@@ -189,10 +222,15 @@ class _LessonPlayerScreenState extends ConsumerState<LessonPlayerScreen> {
   }
 
   Widget _buildExercise(LessonExercise exercise, List<LessonExercise> all) {
+    // Every view forwards this to _DeckCardScaffold, which drops the ghost
+    // layers once there's nothing left stacked behind the current card.
+    final isLast = _index == all.length - 1;
+
     switch (exercise) {
       case VocabCardExercise():
         return _VocabCardView(
           exercise: exercise,
+          isLast: isLast,
           onNext: () {
             _exposeToSrs(() => ref.read(srsRepositoryProvider).exposeVocabItem(exercise.vocabItemId));
             _advance(all, graded: false);
@@ -201,6 +239,7 @@ class _LessonPlayerScreenState extends ConsumerState<LessonPlayerScreen> {
       case ReadingPassageExercise():
         return _ReadingPassageView(
           exercise: exercise,
+          isLast: isLast,
           onNext: () {
             // Only single-ayah cards (the line-by-line cards from
             // migration 0039) are their own SRS item — a multi-ayah
@@ -216,6 +255,7 @@ class _LessonPlayerScreenState extends ConsumerState<LessonPlayerScreen> {
       case RecallQuizExercise():
         return _RecallQuizView(
           exercise: exercise,
+          isLast: isLast,
           selectedOption: _selectedQuizOption,
           answered: _quizAnswered,
           onSelect: (optionIndex) => setState(() {
@@ -237,6 +277,7 @@ class _LessonPlayerScreenState extends ConsumerState<LessonPlayerScreen> {
       case LetterCardExercise():
         return _LetterCardView(
           exercise: exercise,
+          isLast: isLast,
           onNext: () {
             _exposeToSrs(() => ref.read(srsRepositoryProvider).exposeLetter(exercise.letterId));
             _advance(all, graded: false);
@@ -245,92 +286,288 @@ class _LessonPlayerScreenState extends ConsumerState<LessonPlayerScreen> {
       case DiacriticIntroExercise():
         return _DiacriticIntroView(
           exercise: exercise,
+          isLast: isLast,
           onNext: () => _advance(all, graded: false),
         );
       case GrammarExplanationExercise():
         return _GrammarExplanationView(
           exercise: exercise,
+          isLast: isLast,
           onNext: () => _advance(all, graded: false),
         );
       case LetterChainExercise():
         return _LetterChainView(
           exercise: exercise,
+          isLast: isLast,
           onNext: () => _advance(all, graded: false),
         );
       case KnowledgeCardExercise():
         return _KnowledgeCardView(
           exercise: exercise,
+          isLast: isLast,
           onNext: () => _advance(all, graded: false),
         );
       case PrayerStepExercise():
         return _PrayerStepView(
           exercise: exercise,
+          isLast: isLast,
           onNext: () => _advance(all, graded: false),
         );
       case UnsupportedExercise():
         return _UnsupportedView(
           exerciseType: exercise.exerciseType,
+          isLast: isLast,
           onSkip: () => _advance(all, graded: false),
         );
     }
   }
 }
 
-/// Standard skeleton for an exercise view: content that centers
-/// vertically when it's shorter than the available height and scrolls
-/// normally when it's taller, with the primary action pinned at the
-/// bottom outside the scroll area so it's always reachable without
-/// scrolling — even a long reading passage shouldn't make "Next"
-/// something you have to hunt for.
-///
-/// Replaces the `SingleChildScrollView(child: Column(mainAxisAlignment:
-/// center))` pattern several exercise views used to build their own
-/// version of: a scroll view gives its child unbounded height, so
-/// there's nothing for mainAxisAlignment to distribute against, and
-/// short content silently sat at the top with the button stranded below
-/// a large empty gap. Bounding the content to at least the available
-/// height first gives centering something to work with. Also fixes the
-/// inverse problem some other views had — their "Next" button was
-/// stretched full-width by a `CrossAxisAlignment.stretch` Column that
-/// existed to make body text wrap at full width, an unrelated concern
-/// the button just inherited as a side effect. The button lives outside
-/// that Column entirely now, so it's always a compact, centered pill
-/// regardless of what alignment the content above it needs.
-class _ExerciseScaffold extends StatelessWidget {
-  const _ExerciseScaffold({
-    required this.onNext,
-    required this.children,
-    this.crossAxisAlignment = CrossAxisAlignment.center,
+/// Close button, per-exercise progress dots, and a counter — the chrome
+/// every exercise view shares regardless of its content.
+class _DeckHeader extends StatelessWidget {
+  const _DeckHeader({
+    required this.total,
+    required this.index,
+    required this.lessonTitle,
+    required this.onClose,
   });
 
-  static const _padding = EdgeInsets.all(AppSpacing.xl);
+  final int total;
+  final int index;
+  final String lessonTitle;
+  final VoidCallback onClose;
 
-  final VoidCallback onNext;
-  final List<Widget> children;
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.screenInset,
+        AppSpacing.sm,
+        AppSpacing.screenInset,
+        0,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleIconButton(icon: Icons.close_rounded, onPressed: onClose),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Row(
+                  children: [
+                    for (var i = 0; i < total; i++) ...[
+                      if (i > 0) const SizedBox(width: 5),
+                      Expanded(
+                        child: Container(
+                          height: 3,
+                          decoration: BoxDecoration(
+                            color: i <= index ? AppColors.brandPrimary : AppColors.borderSubtle,
+                            borderRadius: BorderRadius.circular(AppRadius.pill),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Text('${index + 1}/$total', style: AppTypography.label(fontSize: 11)),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(lessonTitle.toUpperCase(), style: AppTypography.eyebrow(color: AppColors.textSecondary)),
+        ],
+      ),
+    );
+  }
+}
+
+/// The rounded card shell every exercise renders inside, with a kind pill
+/// up top and (for graded/ungraded cards alike) a Next pill pinned below
+/// it — the one visual idiom every exercise type shares regardless of
+/// what's inside. [nextEnabled]/[nextLabel]/[nextColor] let the quiz view
+/// gate and recolor the button after grading; every other view just takes
+/// the defaults.
+///
+/// Two faint ghost layers sit behind the card so the lesson reads as a
+/// deck of exercises still to come rather than a single page — see
+/// [isLast] for the one case that has nothing left to stack.
+class _DeckCardScaffold extends StatelessWidget {
+  const _DeckCardScaffold({
+    required this.kind,
+    required this.child,
+    required this.onNext,
+    required this.isLast,
+    this.nextEnabled = true,
+    this.nextLabel = 'Next',
+    this.nextColor,
+    this.crossAxisAlignment = CrossAxisAlignment.center,
+    this.scrollable = true,
+  });
+
+  /// The deck's ghost layers, front-most first: how far each is inset from
+  /// the active card's sides, how far below its top edge it starts, and how
+  /// far past its bottom edge it peeks out. Off the 8px grid on purpose —
+  /// the stagger is a perspective cue, not spacing, and each step back is
+  /// narrower and fainter than the one in front of it.
+  static const _ghosts = [
+    (inset: 32.0, top: 24.0, peek: 14.0, fill: 0.05, border: 0.08),
+    (inset: 38.0, top: 30.0, peek: 10.0, fill: 0.03, border: 0.06),
+  ];
+
+  final String kind;
+  final Widget child;
+  final VoidCallback? onNext;
+
+  /// Whether this is the final exercise. The ghosts are a count of what's
+  /// still behind the current card, so the last one shows none.
+  final bool isLast;
+
+  final bool nextEnabled;
+  final String nextLabel;
+  final Color? nextColor;
   final CrossAxisAlignment crossAxisAlignment;
+
+  /// Whether the card body scrolls and centers its content. Set false for
+  /// a child that already scrolls and wants the full remaining height —
+  /// the diacritic grid — since nesting its own scroll view inside this
+  /// one gives it unbounded height.
+  final bool scrollable;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) => SingleChildScrollView(
-              padding: _padding,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight - _padding.vertical),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: crossAxisAlignment,
-                  children: children,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.screenInset,
+              AppSpacing.lg,
+              AppSpacing.screenInset,
+              0,
+            ),
+            child: Stack(
+              // The ghosts hang past the card's bottom edge, into the gap
+              // above the Next pill — that overhang is the whole effect.
+              clipBehavior: Clip.none,
+              // Hands the active card exactly the constraints it had
+              // before the Stack existed, so a scrollable: false child
+              // still gets a bounded height to hand its grid. Nothing here
+              // pins a height: at large text scale the card grows with the
+              // content rather than clipping it, and only the ghosts —
+              // pure decoration, no text — are fixed-size.
+              fit: StackFit.passthrough,
+              children: [
+                if (!isLast)
+                  for (final ghost in _ghosts.reversed)
+                    Positioned(
+                      left: ghost.inset,
+                      right: ghost.inset,
+                      top: ghost.top,
+                      bottom: -ghost.peek,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: AppColors.fillSubtle.withValues(alpha: ghost.fill),
+                          borderRadius: BorderRadius.circular(AppRadius.card),
+                          border: Border.all(color: AppColors.borderSubtle.withValues(alpha: ghost.border)),
+                        ),
+                      ),
+                    ),
+                // Deals the card in rather than swapping it: a cut that
+                // only changes the text reads as the same card being
+                // rewritten, which is exactly the wrong impression when
+                // the deck behind it just got one shorter. Replays per
+                // exercise via the ValueKey in the parent's build().
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: 1),
+                  duration: const Duration(milliseconds: 340),
+                  curve: Curves.ease,
+                  builder: (context, t, child) => Opacity(
+                    opacity: t,
+                    child: Transform.translate(offset: Offset(0, (1 - t) * AppSpacing.md), child: child),
+                  ),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: AppSpacing.xxl),
+                    decoration: BoxDecoration(
+                      color: AppColors.bgSurface,
+                      borderRadius: BorderRadius.circular(AppRadius.card),
+                      border: Border.all(color: AppColors.borderSubtle),
+                      // Separates the card from the ghosts, which share its
+                      // radius and would otherwise read as one flat shape.
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.4),
+                          blurRadius: 44,
+                          offset: const Offset(0, 20),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        StatusPill(label: kind, foreground: AppColors.brandAccent),
+                        Expanded(
+                          child: scrollable
+                              ? LayoutBuilder(
+                                  builder: (context, constraints) => SingleChildScrollView(
+                                    child: ConstrainedBox(
+                                      constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        crossAxisAlignment: crossAxisAlignment,
+                                        children: [child],
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : child,
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         ),
         Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: FilledButton(onPressed: onNext, child: const Text('Next')),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.screenInset,
+            AppSpacing.lg,
+            AppSpacing.screenInset,
+            AppSpacing.xl,
+          ),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: nextColor == null
+                ? PillButton(
+                    label: nextLabel,
+                    icon: Icons.east_rounded,
+                    onPressed: nextEnabled ? onNext : null,
+                  )
+                : FilledButton(
+                    onPressed: nextEnabled ? onNext : null,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: nextColor,
+                      foregroundColor: AppColors.onPrimary,
+                      minimumSize: const Size(0, 50),
+                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+                      shape: const StadiumBorder(),
+                      textStyle: AppTypography.label(fontSize: 15, fontWeight: FontWeight.w600),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(nextLabel),
+                        const SizedBox(width: AppSpacing.sm),
+                        const Icon(Icons.east_rounded, size: 20),
+                      ],
+                    ),
+                  ),
+          ),
         ),
       ],
     );
@@ -338,121 +575,165 @@ class _ExerciseScaffold extends StatelessWidget {
 }
 
 class _DiacriticIntroView extends StatelessWidget {
-  const _DiacriticIntroView({required this.exercise, required this.onNext});
+  const _DiacriticIntroView({required this.exercise, required this.onNext, required this.isLast});
 
   final DiacriticIntroExercise exercise;
   final VoidCallback onNext;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.xl, AppSpacing.xl, AppSpacing.sm),
-          child: Column(
-            children: [
-              Text(exercise.nameEn, style: AppTypography.accent(fontSize: 28, fontWeight: FontWeight.w600)),
-              const SizedBox(height: AppSpacing.sm),
-              Text(exercise.soundDescription, style: Theme.of(context).textTheme.bodyLarge, textAlign: TextAlign.center),
-              const SizedBox(height: AppSpacing.sm),
-              Text(exercise.explanationShort, style: Theme.of(context).textTheme.bodyMedium, textAlign: TextAlign.center),
-            ],
+    return _DeckCardScaffold(
+      kind: 'DIACRITIC',
+      onNext: onNext,
+      isLast: isLast,
+      // The grid scrolls itself and wants the full remaining height.
+      scrollable: false,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: AppSpacing.lg),
+          Text(exercise.nameEn, style: AppTypography.display(fontSize: 28), textAlign: TextAlign.center),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            exercise.soundDescription,
+            style: AppTypography.label(fontSize: 15, fontWeight: FontWeight.w400, color: AppColors.textPrimary),
+            textAlign: TextAlign.center,
           ),
-        ),
-        const Divider(height: 24),
-        Expanded(
-          child: GridView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 4,
-              mainAxisSpacing: 16,
-              childAspectRatio: 0.8,
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            exercise.explanationShort,
+            style: AppTypography.label(fontSize: 13),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          const Divider(),
+          const SizedBox(height: AppSpacing.md),
+          Expanded(
+            // A Wrap of content-sized cells rather than a GridView.
+            //
+            // Every grid delegate wants the cell height up front — as an
+            // aspect ratio of the column width, or as an explicit extent.
+            // Both are a guess about how tall rendered text will be, and
+            // the aspect ratio this used to carry was wrong by over 200px
+            // once the user scaled text up. Computing the extent instead
+            // just moves the guess: it still has to assume each font's
+            // line height, and was still short by a couple of pixels.
+            //
+            // A Wrap asks each cell how tall it actually is and sizes the
+            // run to the tallest, so the whole class of mismatch goes
+            // away. Fine for a fixed 28-cell alphabet; it lays out every
+            // child eagerly, so don't reach for this on a long list.
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                const columns = 4;
+                const spacing = 16.0;
+                final cellWidth =
+                    (constraints.maxWidth - spacing * (columns - 1)) / columns;
+
+                return SingleChildScrollView(
+                  child: Wrap(
+                    spacing: spacing,
+                    runSpacing: spacing,
+                    children: [
+                      for (final letterForm in exercise.allLetterForms)
+                        SizedBox(
+                          width: cellWidth,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Neither of these is stored anywhere — see
+                              // DiacriticIntroExercise's doc comment for why.
+                              Text(
+                                letterForm.isolatedForm + exercise.markUnicode,
+                                style: AppTypography.arabic(
+                                  fontSize: AppTypography.arabicCompact,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: AppSpacing.xs),
+                              Text(
+                                (exercise.doublesConsonant ? letterForm.baseConsonant : '') +
+                                    letterForm.baseConsonant +
+                                    exercise.readingSuffix,
+                                textAlign: TextAlign.center,
+                                style: AppTypography.label(fontSize: 11),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              },
             ),
-            itemCount: exercise.allLetterForms.length,
-            itemBuilder: (context, index) {
-              final letterForm = exercise.allLetterForms[index];
-              // Neither of these is stored anywhere — see
-              // DiacriticIntroExercise's doc comment for why.
-              final combined = letterForm.isolatedForm + exercise.markUnicode;
-              final reading = (exercise.doublesConsonant ? letterForm.baseConsonant : '') +
-                  letterForm.baseConsonant +
-                  exercise.readingSuffix;
-              return Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(combined, style: AppTypography.arabic(fontSize: AppTypography.arabicCompact)),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(reading, style: Theme.of(context).textTheme.bodySmall),
-                ],
-              );
-            },
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: FilledButton(onPressed: onNext, child: const Text('Next')),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
 class _LetterCardView extends StatelessWidget {
-  const _LetterCardView({required this.exercise, required this.onNext});
+  const _LetterCardView({required this.exercise, required this.onNext, required this.isLast});
 
   final LetterCardExercise exercise;
   final VoidCallback onNext;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
-    return _ExerciseScaffold(
+    return _DeckCardScaffold(
+      kind: 'LETTER',
       onNext: onNext,
-      children: [
-        Text(exercise.isolatedForm, style: AppTypography.arabic(fontSize: AppTypography.arabicXL), textAlign: TextAlign.center),
-        const SizedBox(height: AppSpacing.lg),
-        Text(exercise.nameArabic, style: AppTypography.arabic(fontSize: AppTypography.arabicSmall), textAlign: TextAlign.center),
-        const SizedBox(height: AppSpacing.sm),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(exercise.nameTransliteration, style: Theme.of(context).textTheme.titleMedium),
-            if (exercise.isEmphatic) ...[
-              const SizedBox(width: AppSpacing.sm),
-              Chip(
-                label: const Text('heavy'),
-                visualDensity: VisualDensity.compact,
-                backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-              ),
-            ],
-          ],
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Text(exercise.pronunciationGuide, style: Theme.of(context).textTheme.bodyLarge, textAlign: TextAlign.center),
-        const SizedBox(height: AppSpacing.xl),
-        _PositionalFormsRow(exercise: exercise),
-        const SizedBox(height: AppSpacing.lg),
-        // Collapsed by default — makhraj detail is advanced phonetic
-        // information a beginner (this scaffold's Aisha persona)
-        // doesn't need to see before recognizing the letter itself;
-        // ExpansionTile manages its own open/closed state, so this
-        // stays a StatelessWidget rather than needing to become
-        // Stateful just for one optional section.
-        Theme(
-          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-          child: ExpansionTile(
-            title: const Text('Where is this pronounced?'),
-            tilePadding: EdgeInsets.zero,
-            childrenPadding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      isLast: isLast,
+      child: Column(
+        children: [
+          Text(
+            exercise.isolatedForm,
+            style: AppTypography.arabic(fontSize: AppTypography.arabicXL, color: AppColors.textPrimary),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          // The letter's own Arabic name (e.g. أَلِف) leads the
+          // transliteration, per design-system.md Brand Principle 2 —
+          // the script is the subject here, not a gloss on the Latin.
+          Text(
+            exercise.nameArabic,
+            style: AppTypography.arabic(
+              fontSize: AppTypography.arabicSmall,
+              color: AppColors.textPrimary,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                exercise.articulationPoint,
-                style: Theme.of(context).textTheme.bodyMedium,
-                textAlign: TextAlign.center,
-              ),
+              Text(exercise.nameTransliteration, style: AppTypography.display(fontSize: 20)),
+              if (exercise.isEmphatic) ...[
+                const SizedBox(width: AppSpacing.sm),
+                StatusPill(label: 'heavy', foreground: AppColors.brandAccent),
+              ],
             ],
           ),
-        ),
-      ],
+          const SizedBox(height: AppSpacing.xs),
+          Text(exercise.pronunciationGuide, style: AppTypography.label(fontSize: 14), textAlign: TextAlign.center),
+          const SizedBox(height: AppSpacing.xl),
+          _PositionalFormsRow(exercise: exercise),
+          const SizedBox(height: AppSpacing.sm),
+          // Collapsed by default — makhraj is advanced phonetic detail a
+          // beginner doesn't need in order to recognize the letter.
+          Disclosure(
+            label: 'Where is this pronounced?',
+            child: Text(
+              exercise.articulationPoint,
+              style: AppTypography.label(fontSize: 13),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -479,12 +760,22 @@ class _PositionalFormsRow extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
         for (final (label, form) in forms)
-          Column(
-            children: [
-              Text(form, style: AppTypography.arabic(fontSize: AppTypography.arabicSmall)),
-              const SizedBox(height: AppSpacing.xs),
-              Text(label, style: Theme.of(context).textTheme.bodySmall),
-            ],
+          // Each column takes a third of the row rather than its natural
+          // width: "Beginning" is the widest label and, unflexed, three of
+          // them overflow the row once the user's text size grows. An
+          // equal share lets the label wrap instead.
+          Expanded(
+            child: Column(
+              children: [
+                Text(form, style: AppTypography.arabic(fontSize: AppTypography.arabicSmall)),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: AppTypography.label(fontSize: 11),
+                ),
+              ],
+            ),
           ),
       ],
     );
@@ -492,53 +783,96 @@ class _PositionalFormsRow extends StatelessWidget {
 }
 
 class _VocabCardView extends StatelessWidget {
-  const _VocabCardView({required this.exercise, required this.onNext});
+  const _VocabCardView({required this.exercise, required this.onNext, required this.isLast});
 
   final VocabCardExercise exercise;
   final VoidCallback onNext;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
-    return _ExerciseScaffold(
+    return _DeckCardScaffold(
+      kind: 'VOCABULARY',
       onNext: onNext,
-      children: [
-        Text(exercise.arabicText, style: AppTypography.arabic(fontSize: AppTypography.arabicMedium), textAlign: TextAlign.center),
-        const SizedBox(height: AppSpacing.lg),
-        Text(exercise.transliteration, style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: AppSpacing.sm),
-        Text(exercise.meaningEn, style: Theme.of(context).textTheme.bodyLarge, textAlign: TextAlign.center),
-        if (exercise.rootLetters != null) ...[
-          const SizedBox(height: AppSpacing.lg),
-          Text('Root: ${exercise.rootLetters}', style: Theme.of(context).textTheme.bodySmall),
+      isLast: isLast,
+      child: Column(
+        children: [
+          Text(
+            exercise.arabicText,
+            style: AppTypography.arabic(fontSize: AppTypography.arabicMedium, color: AppColors.textPrimary),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            exercise.transliteration,
+            style: AppTypography.label(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.brandPrimary),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            exercise.meaningEn,
+            style: AppTypography.display(fontSize: 19),
+            textAlign: TextAlign.center,
+          ),
+          if (exercise.rootLetters != null || exercise.waznPattern != null) ...[
+            const SizedBox(height: AppSpacing.lg),
+            Wrap(
+              spacing: AppSpacing.sm,
+              alignment: WrapAlignment.center,
+              children: [
+                if (exercise.rootLetters != null)
+                  _MetaPill(label: 'Root: ${exercise.rootLetters}'),
+                if (exercise.waznPattern != null)
+                  _MetaPill(label: 'Pattern: ${exercise.waznPattern}'),
+              ],
+            ),
+          ],
         ],
-        if (exercise.waznPattern != null)
-          Text('Pattern: ${exercise.waznPattern}', style: Theme.of(context).textTheme.bodySmall),
-      ],
+      ),
+    );
+  }
+}
+
+class _MetaPill extends StatelessWidget {
+  const _MetaPill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 6),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        border: Border.all(color: AppColors.borderSubtle),
+      ),
+      child: Text(label, style: AppTypography.label(fontSize: 11)),
     );
   }
 }
 
 class _ReadingPassageView extends StatelessWidget {
-  const _ReadingPassageView({required this.exercise, required this.onNext});
+  const _ReadingPassageView({required this.exercise, required this.onNext, required this.isLast});
 
   final ReadingPassageExercise exercise;
   final VoidCallback onNext;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
-    return _ExerciseScaffold(
+    return _DeckCardScaffold(
+      kind: 'READING',
       onNext: onNext,
-      // Each ayah's own Arabic line needs to right-align against the
-      // full screen width (RTL), not just against however wide its
-      // sibling English text happens to be — stretch, same reasoning
-      // as _GrammarExplanationView/_PrayerStepView below.
+      isLast: isLast,
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (var i = 0; i < exercise.ayat.length; i++) ...[
-          if (i > 0) const Divider(height: 32),
-          _AyahBlock(ayah: exercise.ayat[i]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < exercise.ayat.length; i++) ...[
+            if (i > 0) const Divider(height: 32),
+            _AyahBlock(ayah: exercise.ayat[i]),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
@@ -555,17 +889,18 @@ class _AyahBlock extends StatelessWidget {
       children: [
         Text(
           '${ayah.textDiacritized} ﴿${ayah.ayahNumber}﴾',
-          style: AppTypography.arabic(fontSize: AppTypography.arabicSmall),
+          style: AppTypography.arabic(fontSize: AppTypography.arabicSmall, color: AppColors.textPrimary),
           textAlign: TextAlign.right,
           textDirection: TextDirection.rtl,
         ),
         const SizedBox(height: AppSpacing.sm),
         Text(
           ayah.transliteration,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic),
+          style: AppTypography.label(fontSize: 14, fontWeight: FontWeight.w400, color: AppColors.textSecondary)
+              .copyWith(fontStyle: FontStyle.italic),
         ),
         const SizedBox(height: AppSpacing.xs),
-        Text(ayah.translationEn, style: Theme.of(context).textTheme.bodyMedium),
+        Text(ayah.translationEn, style: AppTypography.display(fontSize: 16)),
       ],
     );
   }
@@ -578,6 +913,7 @@ class _RecallQuizView extends StatelessWidget {
     required this.answered,
     required this.onSelect,
     required this.onNext,
+    required this.isLast,
   });
 
   final RecallQuizExercise exercise;
@@ -585,20 +921,26 @@ class _RecallQuizView extends StatelessWidget {
   final bool answered;
   final ValueChanged<int> onSelect;
   final VoidCallback onNext;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final success = Theme.of(context).extension<AppSemanticColors>()!.success;
+    final isCorrect = selectedOption == exercise.correctOptionIndex;
 
-    return Padding(
-      padding: const EdgeInsets.all(AppSpacing.xl),
+    return _DeckCardScaffold(
+      kind: 'QUIZ',
+      onNext: onNext,
+      isLast: isLast,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      nextEnabled: answered,
+      nextLabel: !answered ? 'Next' : (isCorrect ? 'Correct — Next' : 'Not quite — Next'),
+      nextColor: !answered ? null : (isCorrect ? AppColors.success : AppColors.error),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           MixedArabicText(
             exercise.question,
-            baseStyle: Theme.of(context).textTheme.titleLarge,
+            baseStyle: AppTypography.display(fontSize: 21),
             arabicFontSize: AppTypography.arabicSmall,
           ),
           const SizedBox(height: AppSpacing.xl),
@@ -614,17 +956,8 @@ class _RecallQuizView extends StatelessWidget {
                           : _QuizOptionState.neutral,
               onTap: answered ? null : () => onSelect(i),
             ),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.sm),
           ],
-          const Spacer(),
-          if (answered)
-            FilledButton(
-              onPressed: onNext,
-              style: FilledButton.styleFrom(
-                backgroundColor: selectedOption == exercise.correctOptionIndex ? success : scheme.error,
-              ),
-              child: Text(selectedOption == exercise.correctOptionIndex ? 'Correct — Next' : 'Not quite — Next'),
-            ),
         ],
       ),
     );
@@ -642,83 +975,87 @@ class _QuizOptionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    // "Correct" used to reuse scheme.primary — the same color as every
-    // primary button/nav element in the app, not a distinct feedback
-    // signal. The dedicated success token (docs/design-system.md
-    // state.success) makes "you got this right" its own color, separate
-    // from "this is a primary action."
-    final success = Theme.of(context).extension<AppSemanticColors>()!.success;
     final color = switch (state) {
       _QuizOptionState.neutral => null,
-      _QuizOptionState.correct => success,
-      _QuizOptionState.incorrect => scheme.error,
+      _QuizOptionState.correct => AppColors.success,
+      _QuizOptionState.incorrect => AppColors.error,
     };
 
-    return OutlinedButton(
-      onPressed: onTap,
-      style: OutlinedButton.styleFrom(
-        alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        side: color != null ? BorderSide(color: color, width: 2) : null,
+    return Material(
+      color: color?.withValues(alpha: 0.12) ?? Colors.transparent,
+      borderRadius: BorderRadius.circular(AppRadius.xl),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.xl),
+            border: Border.all(color: color ?? AppColors.borderSubtle, width: color != null ? 1.5 : 1),
+          ),
+          child: Text(label, style: AppTypography.display(fontSize: 16)),
+        ),
       ),
-      child: Text(label),
     );
   }
 }
 
 class _GrammarExplanationView extends StatelessWidget {
-  const _GrammarExplanationView({required this.exercise, required this.onNext});
+  const _GrammarExplanationView({required this.exercise, required this.onNext, required this.isLast});
 
   final GrammarExplanationExercise exercise;
   final VoidCallback onNext;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
-    return _ExerciseScaffold(
+    return _DeckCardScaffold(
+      kind: 'GRAMMAR',
       onNext: onNext,
+      isLast: isLast,
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          exercise.titleEn,
-          style: AppTypography.accent(fontSize: 26, fontWeight: FontWeight.w600),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        Text(exercise.explanationShort, style: Theme.of(context).textTheme.bodyLarge, textAlign: TextAlign.center),
-        const SizedBox(height: AppSpacing.sm),
-        Theme(
-          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-          child: ExpansionTile(
-            title: const Text('Learn more'),
-            tilePadding: EdgeInsets.zero,
-            childrenPadding: const EdgeInsets.only(bottom: AppSpacing.sm),
-            children: [
-              Text(exercise.explanationFull, style: Theme.of(context).textTheme.bodyMedium),
-            ],
-          ),
-        ),
-        if (exercise.exampleAyahText != null) ...[
-          const SizedBox(height: AppSpacing.sm),
-          const Divider(),
-          const SizedBox(height: AppSpacing.sm),
-          Text('Example', style: Theme.of(context).textTheme.labelLarge),
-          const SizedBox(height: AppSpacing.sm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(exercise.titleEn, style: AppTypography.display(fontSize: 24), textAlign: TextAlign.center),
+          const SizedBox(height: AppSpacing.md),
           Text(
-            exercise.exampleAyahText!,
-            style: AppTypography.arabic(fontSize: AppTypography.arabicSmall),
-            textAlign: TextAlign.right,
-            textDirection: TextDirection.rtl,
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            exercise.exampleAyahTransliteration!,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic),
+            exercise.explanationShort,
+            style: AppTypography.label(fontSize: 15, fontWeight: FontWeight.w400, color: AppColors.textPrimary),
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: AppSpacing.xs),
-          Text(exercise.exampleAyahTranslation!, style: Theme.of(context).textTheme.bodyMedium),
+          Disclosure(
+            label: 'Learn more',
+            child: Text(
+              exercise.explanationFull,
+              style: AppTypography.label(fontSize: 13),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          if (exercise.exampleAyahText != null) ...[
+            const SizedBox(height: AppSpacing.lg),
+            const Divider(),
+            const SizedBox(height: AppSpacing.md),
+            Text('EXAMPLE', style: AppTypography.eyebrow(color: AppColors.textSecondary)),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              exercise.exampleAyahText!,
+              style: AppTypography.arabic(fontSize: AppTypography.arabicSmall, color: AppColors.textPrimary),
+              textAlign: TextAlign.right,
+              textDirection: TextDirection.rtl,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              exercise.exampleAyahTransliteration!,
+              style: AppTypography.label(fontSize: 13, fontWeight: FontWeight.w400).copyWith(fontStyle: FontStyle.italic),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(exercise.exampleAyahTranslation!, style: AppTypography.display(fontSize: 15)),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
@@ -729,44 +1066,52 @@ class _GrammarExplanationView extends StatelessWidget {
 /// both from the same plain characters, so nothing here needs its own
 /// stored "isolated form" data (see LetterChainExercise's doc comment).
 class _LetterChainView extends StatelessWidget {
-  const _LetterChainView({required this.exercise, required this.onNext});
+  const _LetterChainView({required this.exercise, required this.onNext, required this.isLast});
 
   final LetterChainExercise exercise;
   final VoidCallback onNext;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
     final letters = exercise.chainText.split('');
 
-    return _ExerciseScaffold(
+    return _DeckCardScaffold(
+      kind: 'LETTER CHAIN',
       onNext: onNext,
-      children: [
-        Text(
-          exercise.chainText,
-          style: AppTypography.arabic(fontSize: AppTypography.arabicLarge),
-          textAlign: TextAlign.center,
-          textDirection: TextDirection.rtl,
-        ),
-        const SizedBox(height: AppSpacing.xl),
-        Text('Same letters, joined together:', style: Theme.of(context).textTheme.bodyMedium),
-        const SizedBox(height: AppSpacing.md),
-        Directionality(
-          textDirection: TextDirection.rtl,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              for (var i = 0; i < letters.length; i++) ...[
-                if (i > 0)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                    child: Text('+', style: Theme.of(context).textTheme.titleLarge),
-                  ),
-                Text(letters[i], style: AppTypography.arabic(fontSize: AppTypography.arabicCompact)),
-              ],
-            ],
+      isLast: isLast,
+      child: Column(
+        children: [
+          Text(
+            exercise.chainText,
+            style: AppTypography.arabic(fontSize: AppTypography.arabicLarge, color: AppColors.textPrimary),
+            textAlign: TextAlign.center,
+            textDirection: TextDirection.rtl,
           ),
-        ),
-      ],
+          const SizedBox(height: AppSpacing.xl),
+          Text('Same letters, joined together:', style: AppTypography.label(fontSize: 13)),
+          const SizedBox(height: AppSpacing.md),
+          Directionality(
+            textDirection: TextDirection.rtl,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                for (var i = 0; i < letters.length; i++) ...[
+                  if (i > 0)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                      child: Text('+', style: AppTypography.display(fontSize: 22)),
+                    ),
+                  Text(
+                    letters[i],
+                    style: AppTypography.arabic(fontSize: AppTypography.arabicCompact, color: AppColors.textPrimary),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -776,37 +1121,40 @@ class _LetterChainView extends StatelessWidget {
 /// doc comment on why this is a separate type rather than reusing
 /// grammar_explanation).
 class _KnowledgeCardView extends StatelessWidget {
-  const _KnowledgeCardView({required this.exercise, required this.onNext});
+  const _KnowledgeCardView({required this.exercise, required this.onNext, required this.isLast});
 
   final KnowledgeCardExercise exercise;
   final VoidCallback onNext;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
-    return _ExerciseScaffold(
+    return _DeckCardScaffold(
+      kind: 'KNOWLEDGE',
       onNext: onNext,
+      isLast: isLast,
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          exercise.titleEn,
-          style: AppTypography.accent(fontSize: 26, fontWeight: FontWeight.w600),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        Text(exercise.explanationShort, style: Theme.of(context).textTheme.bodyLarge, textAlign: TextAlign.center),
-        const SizedBox(height: AppSpacing.sm),
-        Theme(
-          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-          child: ExpansionTile(
-            title: const Text('Learn more'),
-            tilePadding: EdgeInsets.zero,
-            childrenPadding: const EdgeInsets.only(bottom: AppSpacing.sm),
-            children: [
-              Text(exercise.explanationFull, style: Theme.of(context).textTheme.bodyMedium),
-            ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(exercise.titleEn, style: AppTypography.display(fontSize: 24), textAlign: TextAlign.center),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            exercise.explanationShort,
+            style: AppTypography.label(fontSize: 15, fontWeight: FontWeight.w400, color: AppColors.textPrimary),
+            textAlign: TextAlign.center,
           ),
-        ),
-      ],
+          const SizedBox(height: AppSpacing.xs),
+          Disclosure(
+            label: 'Learn more',
+            child: Text(
+              exercise.explanationFull,
+              style: AppTypography.label(fontSize: 13),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -817,46 +1165,45 @@ class _KnowledgeCardView extends StatelessWidget {
 /// repeat it. The Arabic card only renders when there's actually
 /// something to say (most Wudu steps are pure action).
 class _PrayerStepView extends StatelessWidget {
-  const _PrayerStepView({required this.exercise, required this.onNext});
+  const _PrayerStepView({required this.exercise, required this.onNext, required this.isLast});
 
   final PrayerStepExercise exercise;
   final VoidCallback onNext;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
-    return _ExerciseScaffold(
+    return _DeckCardScaffold(
+      kind: 'STEP ${exercise.sequenceOrder}',
       onNext: onNext,
+      isLast: isLast,
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          'Step ${exercise.sequenceOrder}',
-          style: Theme.of(context).textTheme.labelLarge,
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Text(
-          exercise.instructionEn,
-          style: Theme.of(context).textTheme.bodyLarge,
-          textAlign: TextAlign.center,
-        ),
-        if (exercise.arabicText != null) ...[
-          const SizedBox(height: AppSpacing.xl),
-          Card(
-            child: Padding(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            exercise.instructionEn,
+            style: AppTypography.display(fontSize: 20),
+            textAlign: TextAlign.center,
+          ),
+          if (exercise.arabicText != null) ...[
+            const SizedBox(height: AppSpacing.xl),
+            Container(
               padding: const EdgeInsets.all(AppSpacing.lg),
+              decoration: BoxDecoration(
+                color: AppColors.fillSubtle,
+                borderRadius: BorderRadius.circular(AppRadius.lg),
+                border: Border.all(color: AppColors.borderSubtle),
+              ),
               child: Column(
                 children: [
                   if (exercise.repeatCount != null) ...[
-                    Chip(
-                      label: Text('x${exercise.repeatCount}'),
-                      visualDensity: VisualDensity.compact,
-                      backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-                    ),
+                    StatusPill(label: 'x${exercise.repeatCount}', foreground: AppColors.brandAccent),
                     const SizedBox(height: AppSpacing.md),
                   ],
                   Text(
                     exercise.arabicText!,
-                    style: AppTypography.arabic(fontSize: AppTypography.arabicSmall),
+                    style: AppTypography.arabic(fontSize: AppTypography.arabicSmall, color: AppColors.textPrimary),
                     textAlign: TextAlign.center,
                     textDirection: TextDirection.rtl,
                   ),
@@ -864,7 +1211,8 @@ class _PrayerStepView extends StatelessWidget {
                     const SizedBox(height: AppSpacing.sm),
                     Text(
                       exercise.transliteration!,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontStyle: FontStyle.italic),
+                      style: AppTypography.label(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.brandPrimary)
+                          .copyWith(fontStyle: FontStyle.italic),
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -872,52 +1220,41 @@ class _PrayerStepView extends StatelessWidget {
                     const SizedBox(height: AppSpacing.sm),
                     Text(
                       exercise.translationEn!,
-                      style: Theme.of(context).textTheme.bodyMedium,
+                      style: AppTypography.label(fontSize: 13),
                       textAlign: TextAlign.center,
                     ),
                   ],
                 ],
               ),
             ),
-          ),
-        ] else if (exercise.repeatCount != null) ...[
-          const SizedBox(height: AppSpacing.lg),
-          Center(
-            child: Chip(
-              label: Text('x${exercise.repeatCount}'),
-              visualDensity: VisualDensity.compact,
-              backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-            ),
-          ),
+          ] else if (exercise.repeatCount != null) ...[
+            const SizedBox(height: AppSpacing.lg),
+            Center(child: StatusPill(label: 'x${exercise.repeatCount}', foreground: AppColors.brandAccent)),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
 
 class _UnsupportedView extends StatelessWidget {
-  const _UnsupportedView({required this.exerciseType, required this.onSkip});
+  const _UnsupportedView({required this.exerciseType, required this.onSkip, required this.isLast});
 
   final String exerciseType;
   final VoidCallback onSkip;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              '"$exerciseType" exercises aren\'t built in the app yet.',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            FilledButton(onPressed: onSkip, child: const Text('Skip')),
-          ],
-        ),
+    return _DeckCardScaffold(
+      kind: 'COMING SOON',
+      onNext: onSkip,
+      isLast: isLast,
+      nextLabel: 'Skip',
+      child: Text(
+        '"$exerciseType" exercises aren\'t built in the app yet.',
+        textAlign: TextAlign.center,
+        style: AppTypography.label(fontSize: 14),
       ),
     );
   }

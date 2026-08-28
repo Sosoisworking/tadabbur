@@ -56,6 +56,93 @@ supabase link --project-ref your-project-ref
 supabase db push
 ```
 
+## Production web build
+
+Build releases with the script, never with a bare `flutter build web`:
+
+```bash
+./scripts/build-web.sh
+```
+
+It runs `flutter build web --release --no-web-resources-cdn`, then verifies the
+output before declaring success. Deploy the **contents** of `app/build/web`.
+
+### Why `--no-web-resources-cdn` is mandatory
+
+Flutter's default web build does not bundle a reference to its own CanvasKit
+copy. The generated `flutter_bootstrap.js` resolves the CanvasKit URL like this:
+
+```js
+buildConfig.engineRevision && !buildConfig.useLocalCanvasKit
+  ? "https://www.gstatic.com/flutter-canvaskit/<engineRevision>/"
+  : "canvaskit"
+```
+
+Without the flag, `useLocalCanvasKit` is simply absent, so every cold start
+fetches CanvasKit from **`https://www.gstatic.com/flutter-canvaskit/`**.
+`--no-web-resources-cdn` adds `"useLocalCanvasKit":true` to the build config and
+the same files are loaded from your own origin instead.
+
+This is **not a size optimization** — the CanvasKit files are copied into
+`build/web/canvaskit/` either way. Measured across the whole 43 MB output, only
+two of the 40 files differ: `flutter_bootstrap.js` (+25 bytes, the config key)
+and `main.dart.js` (−73 bytes). Net difference: **48 bytes.** The `canvaskit/`
+directory is identical. What changes is *who serves those files*:
+
+- **Privacy.** Tadabbur is a Qur'an study app used privately. The default build
+  discloses every user's IP address, User-Agent, and visit timing to Google on
+  every cold start, with no consent prompt and nothing in the UI to suggest it.
+  That is the reason this flag is non-negotiable here.
+- **Offline / installability.** The app is installed to the home screen and is
+  expected to work on a bad connection. A CDN-dependent build cannot render at
+  all until a third-party host responds — the service worker cannot cache a
+  cross-origin URL it does not control.
+- **Availability.** It removes a third party from the critical rendering path
+  entirely; nothing renders before that request resolves.
+
+Size is unchanged on disk, but the ~2.9 MB gzipped CanvasKit payload moves from
+Google's servers to yours, so **serve `build/web` with gzip or brotli enabled**
+(`canvaskit.wasm` is 7.2 MB raw, ~2.8 MB gzipped).
+
+### What a deployment must supply
+
+`app/.env` must exist **at build time**, containing:
+
+```
+SUPABASE_URL=https://<your-project-ref>.supabase.co
+SUPABASE_PUBLISHABLE_KEY=<your-publishable-key>
+```
+
+`.env` is declared as a bundled asset in `app/pubspec.yaml`, so its contents are
+compiled into the output. **These are build-time inputs, not runtime config** —
+the deployed site cannot pick up credentials later, and rotating a key means
+rebuilding and redeploying. There is no environment variable to set on the host.
+
+`build-web.sh` refuses to build if `.env` is missing, has an empty key, or still
+contains the `.env.example` placeholders.
+
+> The publishable (formerly "anon") key is safe to ship in client code; it is
+> protected by row-level security. Never put the service-role key in `.env`.
+
+### Versioning each deploy
+
+`flutter build web` writes `app/build/web/version.json` from the `version:` field
+in `app/pubspec.yaml` (currently `1.0.0+1`):
+
+```json
+{"app_name":"tadabbur","version":"1.0.0","build_number":"1","package_name":"tadabbur"}
+```
+
+This is served at `https://<your-domain>/version.json`, so it is the one
+reliable way to ask "which build is this user actually on?" when triaging a bug
+report — a hard-refresh question the UI cannot currently answer, since nothing
+in the app reads `version.json` or displays a version string.
+
+**Bump `version:` in `app/pubspec.yaml` before every production deploy** —
+increment the build number after the `+` (`1.0.0+1` → `1.0.0+2`) for a redeploy
+of the same release, and the semantic version for a user-visible release. The
+script echoes the version it built so it can be recorded alongside the deploy.
+
 ## Testing
 
 ```bash

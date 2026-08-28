@@ -13,6 +13,11 @@ void showCityPickerSheet(BuildContext context) {
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
+    // maxChildSize below is 0.95, which on a Dynamic Island phone puts the
+    // sheet's grab area under the island. useSafeArea makes that 0.95 of
+    // the *safe* height instead, and keeps the sheet off the home
+    // indicator at the bottom.
+    useSafeArea: true,
     builder: (context) => const _CityPickerSheet(),
   );
 }
@@ -66,6 +71,12 @@ class _CityPickerSheetState extends ConsumerState<_CityPickerSheet> {
               Expanded(
                 child: ListView(
                   controller: scrollController,
+                  // The sheet doesn't move when the keyboard opens over
+                  // the search field, so without this the last few cities
+                  // can't be scrolled out from behind it.
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.viewInsetsOf(context).bottom,
+                  ),
                   children: [
                     ListTile(
                       leading: const Icon(Icons.my_location_rounded),

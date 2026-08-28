@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <!--
     If you are serving your web app in a path other than the root, change the
@@ -8,9 +8,6 @@
     The path provided below has to start and end with a slash "/" in order for
     it to work correctly.
 
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
     This is a placeholder for base href that will be replaced by the value of
     the `--base-href` argument provided to `flutter build`.
   -->
@@ -18,30 +15,257 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="AI-first Quranic Arabic learning app">
-  <meta name="theme-color" content="#1B5E4A">
 
-  <!-- iOS meta tags & icons -->
+  <!--
+    Flutter's engine deletes any <meta name="viewport"> it finds and installs
+    its own (width=device-width, initial-scale=1, maximum-scale=1,
+    user-scalable=no) the moment it boots. This tag therefore only governs the
+    pre-boot window — but that window matters: without it mobile Safari lays
+    the boot screen out at its ~980px default and then reflows when Flutter
+    swaps the tag in. The content below is byte-for-byte what the engine
+    installs, so the swap is a no-op and nothing moves.
+
+    Still NOT viewport-fit=cover here, but the reason has changed. The
+    original note said to revisit "once the app plumbs real insets into
+    MediaQuery" — lib/core/platform/display_insets_web.dart now does exactly
+    that, and it is what turns cover on, from Dart, after the engine has
+    installed its own tag.
+
+    It stays off in this file on purpose. Cover is only safe while insets are
+    actually being measured, so the flag and the measurement have to be
+    switched on by the same code: display_insets_web.dart adds cover, probes
+    env(safe-area-inset-*), and puts this exact content string back if the
+    probe comes up empty. Hard-coding cover here would make the page
+    edge-to-edge from the first byte with no such fallback.
+  -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+  <meta name="description" content="Learn to read and understand Qur'anic Arabic — guided lessons, spaced review, and daily prayer times.">
+  <meta name="color-scheme" content="dark">
+  <!-- Matches AppColors.bgBase so the browser chrome never flashes light. -->
+  <meta name="theme-color" content="#0D1815">
+
+  <!-- iOS home-screen behaviour. iOS ignores most of manifest.json, so these
+       are what actually decide how the installed app looks and launches. -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
+  <!--
+    "black" gives a black status-bar band with white glyphs, which reads as
+    continuous with the #0D1815 ground. NOT "black-translucent": that draws
+    the app under the Dynamic Island.
+
+    Load-bearing, and not merely cosmetic: because the web view starts below
+    an opaque status bar, iOS itself keeps content clear of the Island, and
+    env(safe-area-inset-top) is 0 by construction. That is what lets
+    display_insets_web.dart turn on viewport-fit=cover without betting the
+    Island on its own probe — the insets it injects are bottom and side only.
+
+    Do not switch this to black-translucent without a different safety story.
+    iOS reads this value once at launch from the cached home-screen bookmark;
+    JavaScript cannot change or revert it at runtime, so a probe that failed
+    on some future iOS version would leave headers under the Island with no
+    fallback.
+  -->
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="Tadabbur">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <meta name="application-name" content="Tadabbur">
+  <link rel="apple-touch-icon" sizes="192x192" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>Tadabbur</title>
+  <title>Tadabbur — Qur'anic Arabic</title>
   <link rel="manifest" href="manifest.json">
+
+  <style>
+    /*
+      Painted before a single byte of Flutter loads. Without it the launch is a
+      white page for as long as CanvasKit takes to download — the most visible
+      defect on a cold home-screen open.
+    */
+    html, body {
+      margin: 0;
+      padding: 0;
+      background-color: #0D1815;
+    }
+
+    #boot {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #0D1815;
+      transition: opacity 260ms ease-out;
+    }
+
+    #boot.is-ready { opacity: 0; }
+
+    #boot svg {
+      width: 84px;
+      height: 84px;
+      animation: boot-pulse 1.6s ease-in-out infinite;
+    }
+
+    @keyframes boot-pulse {
+      0%, 100% { opacity: 0.35; }
+      50%      { opacity: 0.9; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #boot svg { animation: none; opacity: 0.7; }
+    }
+  </style>
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
+  <!-- Boot screen: the branded mark on the app's own ground, so the gap
+       between tap and first frame looks intentional instead of broken.
+       Removed as soon as Flutter attaches its <flutter-view>. -->
+  <div id="boot" aria-hidden="true">
+    <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" fill="#3FA37E">
+      <path d="M244,98 L244,414 C205,330 150,215 132,98 Z"/>
+      <path d="M268,98 L268,414 C307,330 362,215 380,98 Z"/>
+    </svg>
+  </div>
 
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
+  <script>
+    // Flutter appends <flutter-view> to <body> when the engine attaches, which
+    // is the earliest reliable "we are painting now" signal available without
+    // hand-rolling a custom bootstrap. Polled on rAF rather than via :has() so
+    // this does not depend on selector support, and hard-capped so a failed
+    // boot still falls through to the Dart-side startup failure screen rather
+    // than leaving the user staring at the mark forever.
+    (function () {
+      var boot = document.getElementById('boot');
+      if (!boot) return;
+
+      var started = Date.now();
+
+      function dismiss() {
+        // Read by the service-worker registration below: once this flips, a
+        // session is underway and a pending update must not be applied under
+        // the user's feet. Before it flips there is nothing to lose, so a
+        // handover + reload is invisible behind this very screen.
+        window.__tadabburBooted = true;
+        boot.classList.add('is-ready');
+        setTimeout(function () {
+          if (boot.parentNode) boot.parentNode.removeChild(boot);
+        }, 300);
+      }
+
+      function tick() {
+        if (document.querySelector('flutter-view')) {
+          dismiss();
+        } else if (Date.now() - started > 30000) {
+          dismiss();
+        } else {
+          requestAnimationFrame(tick);
+        }
+      }
+
+      requestAnimationFrame(tick);
+    })();
+  </script>
+
+  <script>
+    // Service-worker registration. This is what makes the Install tab's
+    // "runs full-screen and offline" claim true; web/sw.js has the full
+    // rationale and cache strategy.
+    //
+    // Registered here rather than through flutter.js on purpose: Flutter's
+    // bootstrap-driven registration is deprecated (flutter#156910) and only
+    // ever registers flutter_service_worker.js, which is now a stub that
+    // unregisters itself. web/flutter_bootstrap.js therefore omits
+    // serviceWorkerSettings entirely, leaving this the only registration.
+    (function () {
+      if (!('serviceWorker' in navigator)) return;
+
+      // Substituted by `flutter build web` with a fresh per-build token. This
+      // is the hinge of the update strategy: the token goes into the worker's
+      // script URL, so a new build is a new script URL, which is the one thing
+      // that reliably forces the browser to install a new worker (a
+      // byte-identical sw.js at an unchanged URL never reinstalls, which is
+      // exactly how naive setups pin users to a stale build forever).
+      var BUILD_TOKEN = {{flutter_service_worker_version}};
+
+      // No token means the build was made with --pwa-strategy=none, so cache
+      // names could not vary per build. An unversionable cache is worse than
+      // no cache, so decline to register rather than risk pinning anyone.
+      if (!BUILD_TOKEN) return;
+
+      var SW_URL = 'sw.js?v=' + BUILD_TOKEN;
+      var RELOAD_GUARD = 'tadabbur-sw-handover';
+      var handoverRequested = false;
+
+      // Hand control to a worker that has finished precaching the new build,
+      // then reload onto it. Guarded twice so this can never loop: once per
+      // page via `handoverRequested`, and once per build via sessionStorage.
+      function handOver(worker) {
+        if (handoverRequested) return;
+        try {
+          if (sessionStorage.getItem(RELOAD_GUARD) === String(BUILD_TOKEN)) return;
+          sessionStorage.setItem(RELOAD_GUARD, String(BUILD_TOKEN));
+        } catch (e) {
+          // Private mode with storage disabled: the per-page guard still holds.
+        }
+        // Set only once the handover is really being asked for, so the
+        // controllerchange listener below cannot mistake a worker that
+        // activated on its own for one we requested.
+        handoverRequested = true;
+        worker.postMessage({ type: 'SKIP_WAITING' });
+      }
+
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
+        // Also fires the first time a worker claims an uncontrolled page. That
+        // page is already running the current build, so only reload when the
+        // handover was ours to ask for.
+        if (handoverRequested) window.location.reload();
+      });
+
+      // Registering on `load` keeps the ~10MB precache off the cold-start
+      // critical path, so a first visit paints before it starts downloading
+      // the offline copy.
+      window.addEventListener('load', function () {
+        navigator.serviceWorker
+          .register(SW_URL, { scope: './', updateViaCache: 'none' })
+          .then(function (registration) {
+            // A worker left waiting by a previous session: this is a launch
+            // boundary, nothing is running yet, so take the new build now.
+            if (registration.waiting && navigator.serviceWorker.controller) {
+              handOver(registration.waiting);
+              return;
+            }
+
+            registration.addEventListener('updatefound', function () {
+              var installing = registration.installing;
+              if (!installing) return;
+
+              installing.addEventListener('statechange', function () {
+                if (installing.state !== 'installed') return;
+
+                // First ever install: it activates on its own, and the page is
+                // already running the matching build.
+                if (!navigator.serviceWorker.controller) return;
+
+                // A new build finished precaching while a session is already
+                // underway. Deliberately do NOT swap it in — reloading out from
+                // under someone mid-lesson is worse than one launch of
+                // staleness. It stays waiting and the branch above applies it
+                // at the next launch. If we are still on the boot screen there
+                // is nothing to interrupt, so take it immediately instead.
+                if (window.__tadabburBooted) return;
+                handOver(installing);
+              });
+            });
+          })
+          .catch(function (error) {
+            // Offline support is a bonus, never a launch blocker.
+            console.warn('Service worker registration failed:', error);
+          });
+      });
+    })();
+  </script>
+
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
