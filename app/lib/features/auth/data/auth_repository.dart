@@ -47,6 +47,20 @@ class AuthRepository {
   Future<void> signOut() => _client.auth.signOut();
 
   bool get isSignedIn => _client.auth.currentUser != null;
+
+  /// True while the session came from [continueAnonymously] and has never
+  /// been linked to an email.
+  ///
+  /// Load-bearing for signing out, not cosmetic: an anonymous session is the
+  /// *only* key to the progress recorded under its auth.uid(). Signing out of
+  /// one is unrecoverable — there are no credentials to sign back in with —
+  /// so the confirmation has to say something different from the one an
+  /// account holder sees.
+  bool get isAnonymous => _client.auth.currentUser?.isAnonymous ?? false;
+
+  /// The signed-in email, or null for an anonymous session. Shown in
+  /// Settings so "log out" names the thing being logged out of.
+  String? get email => _client.auth.currentUser?.email;
 }
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {

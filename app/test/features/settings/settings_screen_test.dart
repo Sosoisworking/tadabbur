@@ -12,8 +12,28 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:tadabbur/core/theme/app_theme.dart';
 import 'package:tadabbur/core/util/hijri_date.dart';
+import 'package:tadabbur/features/auth/data/auth_repository.dart';
 import 'package:tadabbur/features/settings/presentation/providers/settings_providers.dart';
 import 'package:tadabbur/features/settings/presentation/screens/settings_screen.dart';
+
+/// Enough of an account for the Account card to render; these tests are
+/// about the prayer and Hijri controls.
+class _StubAuthRepository implements AuthRepository {
+  @override
+  bool get isAnonymous => false;
+
+  @override
+  String? get email => 'aisha@example.com';
+
+  @override
+  bool get isSignedIn => true;
+
+  @override
+  Future<void> signOut() async {}
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 Future<void> _pump(WidgetTester tester, {double textScale = 1.0}) async {
   // A phone-shaped surface rather than the 800x600 default — this is a
@@ -26,8 +46,15 @@ Future<void> _pump(WidgetTester tester, {double textScale = 1.0}) async {
   await tester.pumpWidget(
     ProviderScope(
       // The app's own override list, so a break in the real wiring fails
-      // here rather than passing against a test-only arrangement.
-      overrides: settingsOverrides,
+      // here rather than passing against a test-only arrangement. The auth
+      // stub is the one addition: the Account card reads the signed-in
+      // identity, and the real repository reaches for a Supabase client that
+      // no widget test initialises. Sign-out behaviour itself is covered in
+      // sign_out_test.dart.
+      overrides: [
+        ...settingsOverrides,
+        authRepositoryProvider.overrideWithValue(_StubAuthRepository()),
+      ],
       child: MaterialApp(
         theme: AppTheme.dark(),
         home: textScale == 1.0

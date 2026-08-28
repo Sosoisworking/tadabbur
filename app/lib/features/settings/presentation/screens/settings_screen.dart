@@ -11,6 +11,7 @@ import '../../../../shared/widgets/disclosure.dart';
 import '../../../../shared/widgets/pill.dart';
 import '../../../../shared/widgets/row_icon_dot.dart';
 import '../../../../shared/widgets/screen_header.dart';
+import '../../../auth/data/auth_repository.dart';
 import '../../../prayer_times/domain/prayer_calculation_settings.dart';
 import '../../../prayer_times/presentation/providers/prayer_times_providers.dart';
 import '../../../prayer_times/presentation/widgets/city_picker_sheet.dart';
@@ -77,6 +78,10 @@ class SettingsScreen extends ConsumerWidget {
             const _SectionLabel('Hijri date'),
             const SizedBox(height: AppSpacing.md),
             _HijriOffsetCard(offset: settings.hijriDayOffset),
+            const SizedBox(height: AppSpacing.xxl),
+            const _SectionLabel('Account'),
+            const SizedBox(height: AppSpacing.md),
+            const _AccountCard(),
           ],
         ),
       ),
@@ -243,6 +248,135 @@ class _HijriOffsetCard extends ConsumerWidget {
     final value when value > 0 => '$value days later',
     final value => '${-value} days earlier',
   };
+}
+
+/// Who you are signed in as, and the way out.
+///
+/// The two states are genuinely different actions wearing similar words. An
+/// account holder signing out can sign back in and find everything where they
+/// left it. An anonymous session is the only key to the progress stored under
+/// its auth.uid() — there are no credentials to return with — so signing out
+/// of one discards that progress for good. The copy, the icon and the
+/// confirmation all diverge on that, rather than sharing one neutral wording
+/// that would be a lie in the anonymous case.
+class _AccountCard extends ConsumerWidget {
+  const _AccountCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final auth = ref.watch(authRepositoryProvider);
+    final isAnonymous = auth.isAnonymous;
+    final email = auth.email;
+
+    return _Card(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Row(
+            children: [
+              RowIconDot(
+                icon: isAnonymous ? Icons.person_outline_rounded : Icons.person_rounded,
+                background: AppColors.brandPrimary.withValues(alpha: 0.14),
+                foreground: AppColors.brandPrimary,
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isAnonymous ? 'Signed in without an account' : 'Signed in',
+                      style: AppTypography.label(fontSize: 12),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      email ?? 'Progress is saved on this device only',
+                      style: AppTypography.display(fontSize: 15),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const _RowDivider(),
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => _confirmSignOut(context, ref, isAnonymous: isAnonymous),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Row(
+                children: [
+                  RowIconDot(
+                    icon: Icons.logout_rounded,
+                    background: AppColors.error.withValues(alpha: 0.14),
+                    foreground: AppColors.error,
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Text(
+                      'Log out',
+                      style: AppTypography.display(fontSize: 16, color: AppColors.error),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Always confirms. Signing out is one tap from a settings list, and for an
+/// anonymous session it is destructive and irreversible — so the anonymous
+/// variant names what is lost rather than asking a generic "are you sure".
+Future<void> _confirmSignOut(
+  BuildContext context,
+  WidgetRef ref, {
+  required bool isAnonymous,
+}) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(isAnonymous ? 'Log out and lose your progress?' : 'Log out?'),
+      content: Text(
+        isAnonymous
+            ? 'This device is signed in without an account, so there is no way '
+                'to sign back in. Your lessons, streak and review queue will be '
+                'gone for good.'
+            : 'You can sign back in any time and your progress will be waiting.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          style: TextButton.styleFrom(foregroundColor: AppColors.error),
+          child: Text(isAnonymous ? 'Log out anyway' : 'Log out'),
+        ),
+      ],
+    ),
+  );
+
+  if (confirmed != true) return;
+
+  try {
+    await ref.read(authRepositoryProvider).signOut();
+    // No navigation here on purpose: the router redirects to onboarding off
+    // the auth-state stream (see app_router.dart), so pushing a route as well
+    // would race it.
+  } catch (error) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Could not log out. Please try again.\n$error')),
+    );
+  }
 }
 
 class _SectionLabel extends StatelessWidget {
