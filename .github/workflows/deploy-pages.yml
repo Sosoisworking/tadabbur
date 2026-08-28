@@ -40,12 +40,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # enablement: true turns Pages on for the repository if it is off, so a
-      # first deploy does not need anyone to visit Settings first. It is a
-      # no-op once Pages is already enabled.
+      # Pages must already be enabled with "GitHub Actions" as the source:
+      # Settings → Pages → Build and deployment → Source.
+      #
+      # This step used to pass `enablement: true` to switch it on from here.
+      # That cannot work with the default GITHUB_TOKEN — creating a Pages
+      # site needs repository-admin rights the workflow token does not have,
+      # so it failed the build before anything was even compiled. Enabling
+      # Pages is a one-time manual step; this step only reads the resulting
+      # configuration.
       - uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - uses: subosito/flutter-action@v2
         with:
