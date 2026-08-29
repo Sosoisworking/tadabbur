@@ -142,7 +142,19 @@ else
       if(missing.length){console.error('  missing from build: '+missing.join(', '));process.exit(1);}
       const fonts=list.filter(e=>/assets\/assets\/fonts\/.*\.ttf\$/.test(e));
       if(fonts.length<8){console.error('  only '+fonts.length+' bundled fonts precached; Arabic will fall back offline');process.exit(1);}
-      console.log('  '+list.length+' precache entries, all present, '+fonts.length+' fonts');
+
+      // Install is atomic, so its weight decides whether an update can land on
+      // a phone at all: a PWA is suspended the moment it is backgrounded, and
+      // an unfinished install caches nothing and leaves no worker waiting.
+      // canvaskit.wasm alone is ~6.9MB and belongs in the deferred tier.
+      const bytes=list.reduce((s,e)=>s+fs.statSync('build/web/'+(e==='.'?'index.html':e)).size,0);
+      const mb=bytes/1048576;
+      if(list.some(e=>e.includes('canvaskit.wasm'))){
+        console.error('  canvaskit.wasm is back in the atomic install; updates will stop landing on iOS');process.exit(1);}
+      if(mb>6){console.error('  atomic install is '+mb.toFixed(2)+'MB; too heavy to finish reliably on a phone');process.exit(1);}
+      if(!/const SHELL_DEFERRED = \[[^\]]*canvaskit\.wasm/.test(sw)){
+        console.error('  canvaskit.wasm is in neither the atomic nor the deferred tier; it would never be cached');process.exit(1);}
+      console.log('  '+list.length+' precache entries, all present, '+fonts.length+' fonts, atomic '+mb.toFixed(2)+'MB');
     " && pass "service worker precache integrity" || fail "service worker precache integrity"
 
     node --check build/web/sw.js 2>/dev/null && pass "sw.js parses" || fail "sw.js parses"

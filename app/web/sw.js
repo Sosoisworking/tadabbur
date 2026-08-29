@@ -110,7 +110,6 @@ const SHELL_CORE = [
   'icons/Icon-maskable-192.png',
   'icons/Icon-maskable-512.png',
   'canvaskit/canvaskit.js',
-  'canvaskit/canvaskit.wasm',
   'assets/AssetManifest.bin',
   'assets/AssetManifest.bin.json',
   'assets/FontManifest.json',
@@ -139,6 +138,28 @@ const SHELL_CORE = [
 /// `index.html` is the same bytes as '.' under its explicit name, and some
 /// static hosts answer it with a redirect to '/' rather than the file.
 const SHELL_OPTIONAL = ['index.html'];
+
+/// Fetched after the worker activates, never as part of install.
+///
+/// canvaskit.wasm is 6.9 MB — on its own more than half of what a full
+/// precache weighs. Install is atomic, so while it was in SHELL_CORE the
+/// entire update hinged on that one download finishing: a phone that
+/// downloaded 10 MB and was then backgrounded cached nothing, left no worker
+/// waiting, and started again from zero on the next launch. In practice
+/// updates stopped landing on iOS at all, because a PWA is suspended the
+/// moment it leaves the foreground.
+///
+/// Deferring it makes the atomic part ~4 MB, which finishes in seconds, so
+/// the new build reliably reaches `waiting` and can be offered. The wasm is
+/// then warmed in the background, and a miss is not fatal either way:
+/// cacheFirstShell falls through to the network and adopts what it gets.
+///
+/// The tradeoff, stated plainly: for a short window after an update — until
+/// the warm completes — going offline can fail to render. Before this change
+/// offline was guaranteed the instant install completed, but updates
+/// effectively never completed on a phone. A narrow window beats a permanent
+/// one.
+const SHELL_DEFERRED = ['canvaskit/canvaskit.wasm'];
 
 /*
   DEVIATION, FLAGGED DELIBERATELY.
@@ -291,6 +312,27 @@ self.addEventListener('install', (event) => {
 // activate — reclaim every cache that is not this build's
 // ---------------------------------------------------------------------------
 
+/// Pulls [SHELL_DEFERRED] into the shell cache in the background, skipping
+/// anything already there so a re-activation is cheap. Failures are logged and
+/// dropped: this is an optimisation, and the fetch handler copes without it.
+async function warmDeferred() {
+  try {
+    const cache = await caches.open(SHELL_CACHE);
+    for (const path of SHELL_DEFERRED) {
+      const url = shellUrl(path);
+      if (await cache.match(url)) continue;
+      try {
+        const response = await fetch(new Request(url, { cache: 'reload' }));
+        if (response.ok) await cache.put(url, response);
+      } catch (error) {
+        console.warn('[sw] deferred warm skipped:', path, error);
+      }
+    }
+  } catch (error) {
+    console.warn('[sw] deferred warm failed:', error);
+  }
+}
+
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
@@ -304,6 +346,12 @@ self.addEventListener('activate', (event) => {
       // Claim so that the page which just triggered the handover is controlled
       // immediately, rather than only after another navigation.
       await self.clients.claim();
+
+      // Deliberately not awaited: warming the deferred assets must not hold up
+      // activation, or it would just move the stall that deferring them was
+      // meant to remove. If the worker is terminated mid-download the cache
+      // simply stays cold and the next fetch adopts it from the network.
+      warmDeferred();
     })(),
   );
 });

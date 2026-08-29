@@ -1,8 +1,10 @@
 import 'package:adhan_dart/adhan_dart.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/app_version.dart';
 import '../../../../core/platform/app_update.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -267,8 +269,58 @@ class _UpdateCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final available = AppUpdate.available;
-    if (available == null) return const SizedBox.shrink();
 
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _SectionLabel('App'),
+        const SizedBox(height: AppSpacing.md),
+        _Card(
+          children: [
+            // Always shown. Knowing which build is running is the thing that
+            // makes "the change didn't appear" answerable instead of guesswork
+            // — it matches the run number in the Actions tab.
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Row(
+                children: [
+                  RowIconDot(
+                    icon: Icons.info_outline_rounded,
+                    background: AppColors.brandPrimary.withValues(alpha: 0.14),
+                    foreground: AppColors.brandPrimary,
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Version', style: AppTypography.label(fontSize: 12)),
+                        const SizedBox(height: 2),
+                        Text(AppVersion.full, style: AppTypography.display(fontSize: 15)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (available != null) _UpdateRow(available: available),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.xxl),
+      ],
+    );
+  }
+}
+
+/// The "new version — tap to reload" row, present only while a newer build is
+/// genuinely precached and waiting. Not a check-for-updates button.
+class _UpdateRow extends StatelessWidget {
+  const _UpdateRow({required this.available});
+
+  final ValueListenable<bool> available;
+
+  @override
+  Widget build(BuildContext context) {
     return ValueListenableBuilder<bool>(
       valueListenable: available,
       builder: (context, ready, _) {
@@ -277,11 +329,8 @@ class _UpdateCard extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const _SectionLabel('App'),
-            const SizedBox(height: AppSpacing.md),
-            _Card(
-              children: [
-                Material(
+            const _RowDivider(),
+            Material(
                   color: Colors.transparent,
                   child: InkWell(
                     // Applying reloads the page onto the new build, so this
@@ -324,9 +373,6 @@ class _UpdateCard extends StatelessWidget {
                     ),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.xxl),
           ],
         );
       },

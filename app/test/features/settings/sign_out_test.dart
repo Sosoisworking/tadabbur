@@ -82,6 +82,8 @@ Future<void> _tapLogOut(WidgetTester tester) async {
 }
 
 void main() {
+  _versionTests();
+
   testWidgets('an account holder sees their email and a reassuring confirmation', (tester) async {
     final auth = await _pump(tester, isAnonymous: false, email: 'aisha@example.com');
 
@@ -144,5 +146,19 @@ void main() {
     // Silently failing here would leave someone believing they had logged out
     // on a shared device.
     expect(find.textContaining('Could not log out'), findsOneWidget);
+  });
+}
+
+/// The build identifier has to be on screen unconditionally, not only when an
+/// update happens to be waiting. Without it "the change didn't show up" can
+/// only be answered by guessing, which is exactly what it cost before.
+void _versionTests() {
+  testWidgets('the running build is always shown', (tester) async {
+    await _pump(tester, isAnonymous: false, email: 'aisha@example.com');
+    await tester.scrollUntilVisible(find.text('Version'), 200);
+
+    expect(find.text('Version'), findsOneWidget);
+    // A local build reports 'dev' rather than a zero that would look real.
+    expect(find.textContaining('1.0.0 · build'), findsOneWidget);
   });
 }

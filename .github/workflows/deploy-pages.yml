@@ -92,11 +92,18 @@ jobs:
       # renderer is fetched from Google's CDN, which discloses every visitor's
       # IP to Google and makes offline impossible, since a service worker
       # cannot cache a cross-origin URL.
+      # --dart-define=APP_BUILD and --build-number both carry the CI run
+      # number, so the build shown in Settings, the one in version.json, and
+      # the run in the Actions tab are the same number. Without it every
+      # deploy called itself 1.0.0+1 and there was no way to tell from a phone
+      # which build it was actually running.
       - name: Build
         run: |
           flutter build web --release \
             --no-web-resources-cdn \
-            --base-href "/${GITHUB_REPOSITORY#*/}/"
+            --base-href "/${GITHUB_REPOSITORY#*/}/" \
+            --build-number "${GITHUB_RUN_NUMBER}" \
+            --dart-define=APP_BUILD="${GITHUB_RUN_NUMBER}"
 
       # The service worker precaches a fixed list and its install is atomic:
       # one missing file and the app silently stops working offline while the
