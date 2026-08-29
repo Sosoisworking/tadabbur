@@ -197,6 +197,36 @@
       var RELOAD_GUARD = 'tadabbur-sw-handover';
       var handoverRequested = false;
 
+      // A worker that has finished precaching a newer build and is waiting for
+      // a launch boundary. Held here so the app can *offer* the update in
+      // Settings rather than the user having to guess that fully quitting and
+      // relaunching is what picks it up.
+      var waitingWorker = null;
+
+      // Called from Dart (see core/platform/app_update_web.dart) once the UI
+      // is ready to be told. Assigned before registration so an update that
+      // installs quickly is not missed.
+      window.__tadabburOnUpdateAvailable = null;
+
+      function announceUpdate(worker) {
+        waitingWorker = worker;
+        if (typeof window.__tadabburOnUpdateAvailable === 'function') {
+          window.__tadabburOnUpdateAvailable();
+        }
+      }
+
+      /// Applied only when the user asks for it, from Settings.
+      window.__tadabburApplyUpdate = function () {
+        if (waitingWorker) handOver(waitingWorker);
+      };
+
+      /// Lets Dart ask on startup, covering the case where the worker was
+      /// already waiting before the Flutter view attached and the callback
+      /// had nothing to call.
+      window.__tadabburUpdateReady = function () {
+        return !!waitingWorker;
+      };
+
       // Hand control to a worker that has finished precaching the new build,
       // then reload onto it. Guarded twice so this can never loop: once per
       // page via `handoverRequested`, and once per build via sessionStorage.
@@ -232,6 +262,11 @@
             // A worker left waiting by a previous session: this is a launch
             // boundary, nothing is running yet, so take the new build now.
             if (registration.waiting && navigator.serviceWorker.controller) {
+              // Still on the boot screen, so nothing is interrupted: take it
+              // now rather than asking. Announce it too, so that if the
+              // handover is refused by either guard the app can still offer
+              // it in Settings rather than appearing stuck on an old build.
+              announceUpdate(registration.waiting);
               handOver(registration.waiting);
               return;
             }
@@ -250,9 +285,11 @@
                 // A new build finished precaching while a session is already
                 // underway. Deliberately do NOT swap it in — reloading out from
                 // under someone mid-lesson is worse than one launch of
-                // staleness. It stays waiting and the branch above applies it
-                // at the next launch. If we are still on the boot screen there
-                // is nothing to interrupt, so take it immediately instead.
+                // staleness. It stays waiting, Settings offers it, and the
+                // branch above applies it at the next launch regardless. If we
+                // are still on the boot screen there is nothing to interrupt,
+                // so take it immediately instead.
+                announceUpdate(installing);
                 if (window.__tadabburBooted) return;
                 handOver(installing);
               });

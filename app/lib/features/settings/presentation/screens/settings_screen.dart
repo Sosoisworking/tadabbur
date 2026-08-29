@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/platform/app_update.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -79,6 +80,7 @@ class SettingsScreen extends ConsumerWidget {
             const SizedBox(height: AppSpacing.md),
             _HijriOffsetCard(offset: settings.hijriDayOffset),
             const SizedBox(height: AppSpacing.xxl),
+            const _UpdateCard(),
             const _SectionLabel('Account'),
             const SizedBox(height: AppSpacing.md),
             const _AccountCard(),
@@ -248,6 +250,88 @@ class _HijriOffsetCard extends ConsumerWidget {
     final value when value > 0 => '$value days later',
     final value => '${-value} days earlier',
   };
+}
+
+/// Offers a downloaded-but-not-yet-applied build.
+///
+/// Renders nothing at all until there is genuinely something to apply — this
+/// is not a "check for updates" button. The service worker deliberately waits
+/// rather than swapping a new build in mid-session, and index.html applies it
+/// at the next launch, so the only alternative to this row is expecting people
+/// to know that fully quitting and relaunching is what picks up a new version.
+///
+/// Absent on native, where the store owns updates.
+class _UpdateCard extends StatelessWidget {
+  const _UpdateCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final available = AppUpdate.available;
+    if (available == null) return const SizedBox.shrink();
+
+    return ValueListenableBuilder<bool>(
+      valueListenable: available,
+      builder: (context, ready, _) {
+        if (!ready) return const SizedBox.shrink();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const _SectionLabel('App'),
+            const SizedBox(height: AppSpacing.md),
+            _Card(
+              children: [
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    // Applying reloads the page onto the new build, so this
+                    // is the one control here that discards what is on screen.
+                    // It is only ever offered from Settings, never mid-lesson.
+                    onTap: AppUpdate.apply,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                      child: Row(
+                        children: [
+                          RowIconDot(
+                            icon: Icons.refresh_rounded,
+                            background: AppColors.brandAccent.withValues(alpha: 0.16),
+                            foreground: AppColors.brandAccent,
+                          ),
+                          const SizedBox(width: AppSpacing.md),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'New version',
+                                  style: AppTypography.display(fontSize: 16),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Downloaded and ready — tap to reload',
+                                  style: AppTypography.label(fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(
+                            Icons.chevron_right_rounded,
+                            size: 20,
+                            color: AppColors.textMuted,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.xxl),
+          ],
+        );
+      },
+    );
+  }
 }
 
 /// Who you are signed in as, and the way out.
