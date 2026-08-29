@@ -72,7 +72,7 @@ const _units = [
 
 final _lessons = {
   1: const [
-    Lesson(id: 11, title: 'Alif, Ba, Ta', sequenceOrder: 1, estimatedMinutes: 6),
+    Lesson(id: 11, title: 'Alif, Ba, Ta', sequenceOrder: 1, estimatedMinutes: 6, isCompleted: true),
     Lesson(id: 12, title: 'Fathah Quiz', sequenceOrder: 2, estimatedMinutes: 4),
   ],
   2: const [
@@ -161,5 +161,22 @@ void main() {
     await tester.drag(find.byType(ListView), const Offset(-300, 0));
     await tester.pump();
     expect(tester.takeException(), isNull);
+  });
+
+  group('completed lessons', () {
+    testWidgets('a finished lesson reads as completed, an unfinished one shows its length', (tester) async {
+      await _pumpLearn(tester);
+
+      // The point of the marker is scanning: the finished row must not still
+      // advertise a duration as though it were work left to do.
+      expect(find.text('Completed'), findsOneWidget);
+      expect(find.text('6 min'), findsNothing);
+      expect(find.text('4 min'), findsOneWidget);
+    });
+
+    testWidgets('the completed row is marked with a tick', (tester) async {
+      await _pumpLearn(tester);
+      expect(find.byIcon(Icons.check_rounded), findsOneWidget);
+    });
   });
 }

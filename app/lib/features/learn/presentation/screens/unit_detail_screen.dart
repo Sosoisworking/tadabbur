@@ -210,7 +210,11 @@ class _LessonRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = _isQuiz ? AppColors.brandAccent : AppColors.brandPrimary;
+    // Same completed treatment as the Learn tab's lesson rows, so a lesson
+    // does not look finished in one list and unfinished in the other.
+    final accent = lesson.isCompleted
+        ? AppColors.success
+        : (_isQuiz ? AppColors.brandAccent : AppColors.brandPrimary);
 
     return GestureDetector(
       onTap: () => context.push(
@@ -227,7 +231,9 @@ class _LessonRow extends StatelessWidget {
         child: Row(
           children: [
             RowIconDot(
-              icon: _isQuiz ? Icons.quiz_rounded : Icons.menu_book_rounded,
+              icon: lesson.isCompleted
+                  ? Icons.check_rounded
+                  : (_isQuiz ? Icons.quiz_rounded : Icons.menu_book_rounded),
               background: accent.withValues(alpha: 0.16),
               foreground: accent,
               size: 42,
@@ -245,8 +251,11 @@ class _LessonRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    '${lesson.estimatedMinutes} min',
-                    style: AppTypography.label(fontSize: 11),
+                    lesson.isCompleted ? 'Completed' : '${lesson.estimatedMinutes} min',
+                    style: AppTypography.label(
+                      fontSize: 11,
+                      color: lesson.isCompleted ? AppColors.success : null,
+                    ),
                   ),
                 ],
               ),

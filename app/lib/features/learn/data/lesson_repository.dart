@@ -16,13 +16,47 @@ class LessonRepository {
 
   final SupabaseClient _client;
 
+  /// The unit's lessons, each marked with whether this user has finished it.
+  ///
+  /// Two queries rather than one embedded join: `lesson_attempts` is
+  /// row-level-secured to the caller, so a PostgREST embed would filter the
+  /// *lessons* down to those with an attempt and silently hide every lesson
+  /// the user has not started yet. The second query is bounded by the unit's
+  /// lesson count, which is single digits.
   Future<List<Lesson>> fetchLessonsForUnit(int unitId) async {
     final rows = await _client
         .from('lessons')
         .select()
         .eq('unit_id', unitId)
-        .order('sequence_order', ascending: true);
-    return (rows as List).map((row) => Lesson.fromJson(row as Map<String, dynamic>)).toList();
+        .order('sequence_order', ascending: true) as List;
+
+    final lessonIds = [for (final row in rows) (row as Map<String, dynamic>)['id'] as int];
+    final completedIds = await _fetchCompletedLessonIds(lessonIds);
+
+    return [
+      for (final row in rows)
+        Lesson.fromJson(
+          row as Map<String, dynamic>,
+          isCompleted: completedIds.contains(row['id'] as int),
+        ),
+    ];
+  }
+
+  /// Which of [lessonIds] this user has a completed attempt for. Empty when
+  /// signed out, so a signed-out view shows nothing as finished rather than
+  /// throwing.
+  Future<Set<int>> _fetchCompletedLessonIds(List<int> lessonIds) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null || lessonIds.isEmpty) return const {};
+
+    final rows = await _client
+        .from('lesson_attempts')
+        .select('lesson_id')
+        .eq('user_id', userId)
+        .inFilter('lesson_id', lessonIds)
+        .not('completed_at', 'is', null) as List;
+
+    return {for (final row in rows) (row as Map<String, dynamic>)['lesson_id'] as int};
   }
 
   Future<List<LessonExercise>> fetchExercisesForLesson(int lessonId) async {

@@ -21,6 +21,7 @@ import 'package:tadabbur/features/learn/domain/curriculum_unit.dart';
 import 'package:tadabbur/features/learn/domain/lesson.dart';
 import 'package:tadabbur/features/learn/domain/lesson_exercise.dart';
 import 'package:tadabbur/features/learn/presentation/screens/lesson_player_screen.dart';
+import 'package:tadabbur/shared/widgets/pill.dart';
 import 'package:tadabbur/features/review/data/srs_repository.dart';
 import 'package:tadabbur/features/review/domain/srs_item.dart';
 
@@ -680,6 +681,83 @@ void main() {
       await tester.tap(find.text('Where is this pronounced?'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('stepping back through the deck', () {
+    testWidgets('back is unavailable on the first exercise', (tester) async {
+      await _pumpPlayer(tester, exercises: const [_letterCard, _vocabCard]);
+
+      final back = tester.widget<CircleIconButton>(
+        find.widgetWithIcon(CircleIconButton, Icons.west_rounded),
+      );
+      expect(back.onPressed, isNull);
+    });
+
+    testWidgets('back returns to the previous card and its counter', (tester) async {
+      await _pumpPlayer(tester, exercises: const [_letterCard, _vocabCard]);
+      await _tapNext(tester);
+      expect(find.text('2/2'), findsOneWidget);
+
+      await tester.tap(find.widgetWithIcon(CircleIconButton, Icons.west_rounded));
+      await _settle(tester);
+
+      expect(find.text('1/2'), findsOneWidget);
+      expect(find.text('Ba'), findsOneWidget);
+    });
+
+    testWidgets('a quiz answer survives stepping back to it', (tester) async {
+      await _pumpPlayer(tester, exercises: const [_quiz, _vocabCard]);
+
+      await tester.tap(find.text('ب'));
+      await _settle(tester);
+      expect(find.text('Correct — Next'), findsOneWidget);
+
+      await _tapNext(tester, label: 'Correct — Next');
+      await tester.tap(find.widgetWithIcon(CircleIconButton, Icons.west_rounded));
+      await _settle(tester);
+
+      // Returning must not blank the card: the graded state is still shown,
+      // so the user sees what they answered rather than being asked again.
+      expect(find.text('Correct — Next'), findsOneWidget);
+    });
+
+    testWidgets('re-crossing a quiz scores and records it only once', (tester) async {
+      // The defect this guards: while the score was accumulated with ++ and
+      // attempts were written unconditionally, walking back and forward over
+      // a graded card inflated both the score total and the attempt log.
+      final fakes = await _pumpPlayer(tester, exercises: const [_quiz, _vocabCard]);
+
+      await tester.tap(find.text('ب'));
+      await _settle(tester);
+      await _tapNext(tester, label: 'Correct — Next');
+
+      await tester.tap(find.widgetWithIcon(CircleIconButton, Icons.west_rounded));
+      await _settle(tester);
+      await _tapNext(tester, label: 'Correct — Next');
+      await _tapNext(tester);
+
+      expect(fakes.lessons.completedWith, (correct: 1, total: 1));
+      expect(
+        fakes.lessons.recordedAttempts.where((a) => a.exerciseId == _quiz.id).length,
+        1,
+      );
+    });
+
+    testWidgets('changing an answer after going back replaces the old score', (tester) async {
+      final fakes = await _pumpPlayer(tester, exercises: const [_quiz, _vocabCard]);
+
+      await tester.tap(find.text('ب'));
+      await _settle(tester);
+      await _tapNext(tester, label: 'Correct — Next');
+
+      await tester.tap(find.widgetWithIcon(CircleIconButton, Icons.west_rounded));
+      await _settle(tester);
+      await _tapNext(tester, label: 'Correct — Next');
+      await _tapNext(tester);
+
+      // One graded exercise in, one out — never two.
+      expect(fakes.lessons.completedWith!.total, 1);
     });
   });
 }

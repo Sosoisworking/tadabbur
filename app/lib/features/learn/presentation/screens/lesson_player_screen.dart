@@ -36,13 +36,30 @@ class LessonPlayerScreen extends ConsumerStatefulWidget {
 
 class _LessonPlayerScreenState extends ConsumerState<LessonPlayerScreen> {
   int _index = 0;
-  int _correct = 0;
-  int _total = 0;
   bool _completed = false;
   int? _lessonAttemptId;
 
-  int? _selectedQuizOption;
-  bool _quizAnswered = false;
+  /// Answers keyed by exercise index rather than held as one "current
+  /// answer", so stepping back shows what was actually chosen instead of a
+  /// blank card, and stepping forward again cannot score the same question
+  /// twice. Both were possible while this was a pair of scalar fields.
+  final Map<int, int> _quizAnswers = {};
+
+  /// Graded outcomes keyed the same way. The score is derived from this
+  /// rather than accumulated, which is what makes revisiting an exercise
+  /// idempotent: re-answering overwrites, it does not add.
+  final Map<int, bool> _results = {};
+
+  /// Exercise ids already written to `exercise_attempts`. Walking back and
+  /// forward over a card is navigation, not a fresh attempt, so it must not
+  /// append another row.
+  final Set<int> _recordedExerciseIds = {};
+
+  int get _correct => _results.values.where((isCorrect) => isCorrect).length;
+  int get _total => _results.length;
+
+  int? get _selectedQuizOption => _quizAnswers[_index];
+  bool get _quizAnswered => _quizAnswers.containsKey(_index);
 
   @override
   void initState() {
@@ -69,11 +86,9 @@ class _LessonPlayerScreenState extends ConsumerState<LessonPlayerScreen> {
 
   Future<void> _advance(List<LessonExercise> exercises, {required bool graded, bool isCorrect = true}) async {
     final exercise = exercises[_index];
+    final alreadyRecorded = _recordedExerciseIds.contains(exercise.id);
 
-    if (graded) {
-      _total++;
-      if (isCorrect) _correct++;
-    }
+    if (graded) _results[_index] = isCorrect;
 
     // Errors here are surfaced, not swallowed like the SRS fire-and-forget
     // calls above — a failed exercise_attempt/lesson_attempt write is a
@@ -84,34 +99,38 @@ class _LessonPlayerScreenState extends ConsumerState<LessonPlayerScreen> {
     // recoverable message instead of an uncaught exception dump.
     try {
       final attemptId = _lessonAttemptId;
-      if (attemptId != null) {
+      if (attemptId != null && !alreadyRecorded) {
         await ref.read(lessonRepositoryProvider).recordExerciseAttempt(
               lessonAttemptId: attemptId,
               exerciseId: exercise.id,
               isCorrect: isCorrect,
             );
+        _recordedExerciseIds.add(exercise.id);
       }
 
       if (_index + 1 >= exercises.length) {
         await _finish(attemptId);
       } else {
-        setState(() {
-          _index++;
-          _selectedQuizOption = null;
-          _quizAnswered = false;
-        });
+        setState(() => _index++);
       }
     } catch (e) {
-      if (graded) {
-        _total--;
-        if (isCorrect) _correct--;
-      }
+      // Undo the local score, but leave any answer the user picked in place:
+      // the write failed, not their choice, and blanking the card would make
+      // a retry mean re-answering.
+      if (graded) _results.remove(_index);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Could not save your progress. Please try again.\n$e')),
         );
       }
     }
+  }
+
+  /// Steps back one exercise. Records nothing: going back is navigation, and
+  /// the answer already given is kept so the card is not blanked on return.
+  void _goBack() {
+    if (_index == 0) return;
+    setState(() => _index--);
   }
 
   Future<void> _finish(int? attemptId) async {
@@ -128,6 +147,10 @@ class _LessonPlayerScreenState extends ConsumerState<LessonPlayerScreen> {
     // visible — invalidate rather than leaving it stale until some
     // unrelated rebuild happens to refetch it.
     ref.invalidate(curriculumUnitsProvider);
+    // The lesson list carries a per-lesson completed tick now, and it is the
+    // screen the user returns to from here — without this it would still show
+    // the lesson they just finished as unfinished.
+    ref.invalidate(lessonsForUnitProvider(widget.unitId));
     if (mounted) setState(() => _completed = true);
   }
 
@@ -201,6 +224,7 @@ class _LessonPlayerScreenState extends ConsumerState<LessonPlayerScreen> {
                     onClose: () async {
                       if (await _confirmExit() && context.mounted) Navigator.of(context).pop();
                     },
+                    onBack: _index == 0 ? null : _goBack,
                   ),
                   Expanded(
                     // Rebuilds the card subtree from scratch on every
@@ -258,10 +282,9 @@ class _LessonPlayerScreenState extends ConsumerState<LessonPlayerScreen> {
           isLast: isLast,
           selectedOption: _selectedQuizOption,
           answered: _quizAnswered,
-          onSelect: (optionIndex) => setState(() {
-            _selectedQuizOption = optionIndex;
-            _quizAnswered = true;
-          }),
+          // Keyed by exercise index so the answer survives stepping back to
+          // this card, rather than the card returning blank.
+          onSelect: (optionIndex) => setState(() => _quizAnswers[_index] = optionIndex),
           onNext: () {
             final isCorrect = _selectedQuizOption == exercise.correctOptionIndex;
             if (exercise.testedVocabItemId != null || exercise.testedLetterId != null) {
@@ -331,12 +354,19 @@ class _DeckHeader extends StatelessWidget {
     required this.index,
     required this.lessonTitle,
     required this.onClose,
+    required this.onBack,
   });
 
   final int total;
   final int index;
   final String lessonTitle;
   final VoidCallback onClose;
+
+  /// Null on the first exercise, where there is nothing to go back to.
+  /// CircleIconButton renders a disabled control for a null callback, so the
+  /// row keeps its width and the progress bar does not shift sideways as the
+  /// deck advances.
+  final VoidCallback? onBack;
 
   @override
   Widget build(BuildContext context) {
@@ -353,6 +383,8 @@ class _DeckHeader extends StatelessWidget {
           Row(
             children: [
               CircleIconButton(icon: Icons.close_rounded, onPressed: onClose),
+              const SizedBox(width: AppSpacing.sm),
+              CircleIconButton(icon: Icons.west_rounded, onPressed: onBack),
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Row(
