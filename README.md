@@ -5,6 +5,55 @@
 Built solo, with Claude as engineering/product partner. See [`docs/PRD.md`](docs/PRD.md) for the full product vision and success metrics.
 
 [![CI](https://github.com/Sosoisworking/tadabbur/actions/workflows/ci.yml/badge.svg)](https://github.com/Sosoisworking/tadabbur/actions/workflows/ci.yml)
+[![Deploy](https://github.com/Sosoisworking/tadabbur/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/Sosoisworking/tadabbur/actions/workflows/deploy-pages.yml)
+
+## Try it on your phone
+
+**→ [sosoisworking.github.io/tadabbur](https://sosoisworking.github.io/tadabbur/)**
+
+Open that link on your phone and add it to the home screen. There is nothing to
+download from a store, and no account required — you can start a lesson as a
+guest and create an account later.
+
+### iPhone / iPad
+
+**Use Safari, not Chrome.** iOS only grants standalone mode, offline support and
+safe-area handling to Safari. Added from Chrome you get a plain bookmark: browser
+chrome stays visible, offline does not work, and the layout does not clear the
+Dynamic Island.
+
+1. Open **[the link](https://sosoisworking.github.io/tadabbur/)** in Safari
+2. Tap **Share** (the square with an arrow pointing up)
+3. Scroll down and tap **Add to Home Screen**
+4. Tap **Add**
+5. Launch it from the home-screen icon — not from Safari
+
+### Android
+
+1. Open **[the link](https://sosoisworking.github.io/tadabbur/)** in Chrome
+2. Tap the **⋮** menu
+3. Tap **Install app** (or **Add to Home screen**)
+4. Confirm
+
+### First launch
+
+Leave it open for a few seconds on first run. It caches about 4 MB up front so
+the app works offline, then fetches the rest of the rendering engine in the
+background. On a slow connection the first paint can take a moment; after that
+it starts instantly and works with no network.
+
+### Getting updates
+
+The app checks for a new build each time it starts. When one has finished
+downloading, **Settings → App** shows *"New version — tap to reload"*. Tap it.
+
+Updates are never applied mid-session, so a deploy can never reload you out of a
+lesson — it waits until you ask, or until the next launch.
+
+**Settings → App** also shows which build you are running, e.g. `1.0.0 · build 8`.
+That number matches the run number in the
+[Deploy workflow](https://github.com/Sosoisworking/tadabbur/actions/workflows/deploy-pages.yml),
+so "is my phone on the latest?" is a five-second check rather than a guess.
 
 ## Status
 
@@ -19,7 +68,12 @@ Not built yet (see [`docs/implementation-plan.md`](docs/implementation-plan.md) 
 
 ## Distribution
 
-Tadabbur ships as a website added to the home screen, not through the App Store or Play Store — the in-app **Install** tab walks users through it per platform. No store review cycle, no $99/year developer account, no separate iOS/Android release process.
+Tadabbur ships as a website added to the home screen, not through the App Store or Play Store — see [Try it on your phone](#try-it-on-your-phone) above, and the in-app **Install** tab, which walks users through it per platform. No store review cycle, no $99/year developer account, no separate iOS/Android release process.
+
+Every push to `main` builds and publishes to GitHub Pages via
+[`deploy-pages.yml`](.github/workflows/deploy-pages.yml), which runs `flutter analyze`,
+the full test suite, and a set of deployability checks before anything reaches the
+live site.
 
 ## Tech stack
 
